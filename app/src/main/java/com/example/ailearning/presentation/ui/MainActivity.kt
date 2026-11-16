@@ -28,14 +28,16 @@ import com.example.ailearning.presentation.viewmodel.StatisticsViewModel
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    private val learningSetViewModel: LearningSetViewModel = ViewModelProvider(this)[LearningSetViewModel::class.java]
-    private val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]
-    private val settingsViewModel: SettingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
-    private val statisticsViewModel: StatisticsViewModel = ViewModelProvider(this)[StatisticsViewModel::class.java]
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        val learningSetViewModel: LearningSetViewModel = ViewModelProvider(this)[LearningSetViewModel::class.java]
+        val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]
+        val settingsViewModel: SettingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
+        val statisticsViewModel: StatisticsViewModel = ViewModelProvider(this)[StatisticsViewModel::class.java]
+
         setContent {
             AiLearningTheme {
                 Surface(

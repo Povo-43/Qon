@@ -1,0 +1,174 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.devtools.ksp'
+    id 'kotlinx-serialization'
+}
+
+android {
+    namespace = "com.example.ailearning"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.ailearning"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    signingConfigs {
+        create("release") {
+            def storePath = System.getenv("KEYSTORE_PATH") ?: ""
+            def storePass = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            def keyAliasName = System.getenv("KEY_ALIAS") ?: ""
+            def keyPass = System.getenv("KEY_PASSWORD") ?: ""
+            if (storePath && storePass && keyAliasName && keyPass) {
+                storeFile = file(storePath)
+                storePassword = storePass
+                keyAlias = keyAliasName
+                keyPassword = keyPass
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+        }
+        debug {
+            minifyEnabled = false
+            debuggable = true
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += [
+            "-Xopt-in=kotlin.RequiresOptIn",
+            "-Xopt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-Xopt-in=androidx.lifecycle.ExperimentalLifecycleApi",
+            "-Xopt-in=androidx.compose.runtime.ExperimentalComposeApi",
+            "-Xopt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-Xopt-in=androidx.datastore.ExperimentalDatastoreApi"
+        ]
+    }
+
+    buildFeatures {
+        compose = true
+        viewBinding = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+
+    packaging {
+        resources.excludes += "META-INF/*.kotlin_module"
+    }
+}
+
+dependencies {
+    // Gson for API clients
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // javax.inject for @Inject and @Named annotations
+    implementation("javax.inject:javax.inject:1")
+
+    def composeBom = platform("androidx.compose:compose-bom:2024.08.00")
+    def roomVersion = "2.6.1"
+    def lifecycleVersion = "2.8.0"
+    def navigationVersion = "2.8.0"
+    def workVersion = "2.9.0"
+    def datastoreVersion = "1.1.1"
+    def retrofitVersion = "2.11.0"
+    def okhttpVersion = "4.12.0"
+    def coilVersion = "2.7.0"
+    def materialVersion = "1.12.0"
+    def serializationVersion = "1.6.3"
+    def junitVersion = "4.13.2"
+    def mockkVersion = "1.13.9"
+    def turbineVersion = "1.2.0"
+    def robolectricVersion = "4.10.1"
+    def truthVersion = "1.1.5"
+
+    // Compose
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material3:material3-window-size-class")
+    implementation("androidx.activity:activity-compose:1.9.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:$lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:$lifecycleVersion")
+    implementation("androidx.navigation:navigation-compose:$navigationVersion")
+
+    // Room - use KSP
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
+
+    // DataStore
+    implementation("androidx.datastore:datastore-preferences:$datastoreVersion")
+    implementation("androidx.datastore:datastore-core:$datastoreVersion")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:$workVersion")
+
+    // Network
+    implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
+    implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:$retrofitVersion")
+    implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
+    implementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
+
+    // Serialization
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
+
+    // Coil
+    implementation("io.coil-kt:coil-compose:$coilVersion")
+
+    // Security
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // Material Components
+    implementation("com.google.android.material:material:$materialVersion")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Core KTX
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycleVersion")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:$lifecycleVersion")
+
+    // Test
+    testImplementation("junit:junit:$junitVersion")
+    testImplementation("org.mockito:mockito-core:5.11.0")
+    testImplementation("io.mockk:mockk:$mockkVersion")
+    testImplementation("app.cash.turbine:turbine:$turbineVersion")
+    testImplementation("org.robolectric:robolectric:$robolectricVersion")
+    testImplementation("com.google.truth:truth:$truthVersion")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("androidx.room:room-testing:$roomVersion")
+    
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+}

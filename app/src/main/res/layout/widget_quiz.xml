@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/md_sys_color_surface"
+    android:gravity="center">
+
+    <!-- Question Text -->
+    <TextView
+        android:id="@+id/tv_question"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="@string/widget_no_questions"
+        android:textSize="16sp"
+        android:textColor="@color/md_sys_color_on_surface"
+        android:gravity="center"
+        android:lineSpacingExtra="4sp"
+        android:maxLines="5"
+        android:ellipsize="end" />
+
+    <!-- Options Container -->
+    <LinearLayout
+        android:id="@+id/options_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <Button
+            android:id="@+id/btn_option_a"
+            style="@style/Widget.App.Button.Option"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="A. 選択肢 A"
+            android:tag="0" />
+
+        <Button
+            android:id="@+id/btn_option_b"
+            style="@style/Widget.App.Button.Option"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="B. 選択肢 B"
+            android:tag="1" />
+
+        <Button
+            android:id="@+id/btn_option_c"
+            style="@style/Widget.App.Button.Option"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="C. 選択肢 C"
+            android:tag="2" />
+
+        <Button
+            android:id="@+id/btn_option_d"
+            style="@style/Widget.App.Button.Option"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="D. 選択肢 D"
+            android:tag="3" />
+    </LinearLayout>
+
+    <!-- Result/Explanation -->
+    <LinearLayout
+        android:id="@+id/result_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tv_result"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/correct_green" />
+
+        <TextView
+            android:id="@+id/tv_explanation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="12sp"
+            android:textColor="@color/md_sys_color_on_surface_variant"
+            android:maxLines="3"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- Footer -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:gravity="center|end">
+
+        <TextView
+            android:id="@+id/tv_updated"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="10sp"
+            android:textColor="@color/md_sys_color_outline"
+            android:text="@string/widget_last_updated" />
+
+        <Button
+            android:id="@+id/btn_next"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/next_question"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

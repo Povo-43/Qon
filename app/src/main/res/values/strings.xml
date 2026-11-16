@@ -1,0 +1,159 @@
+<resources>
+    <string name="app_name">Qon</string>
+    <string name="widget_name">Qon Quiz Widget</string>
+    
+    <!-- General -->
+    <string name="loading">読み込み中…</string>
+    <string name="error">エラーが発生しました</string>
+    <string name="retry">再試行</string>
+    <string name="cancel">キャンセル</string>
+    <string name="save">保存</string>
+    <string name="delete">削除</string>
+    <string name="edit">編集</string>
+    <string name="add">追加</string>
+    <string name="close">閉じる</string>
+    <string name="next">次へ</string>
+    <string name="previous">前へ</string>
+    <string name="done">完了</string>
+    <string name="skip">スキップ</string>
+    
+    <!-- Home Screen -->
+    <string name="home_title">学習セット</string>
+    <string name="home_empty_title">学習セットがありません</string>
+    <string name="home_empty_message">最初の学習セットを作成して、AIによる問題生成を始めましょう</string>
+    <string name="home_create_button">学習セットを作成</string>
+    
+    <!-- Learning Set -->
+    <string name="learning_set_name">セット名</string>
+    <string name="learning_set_name_hint">例: 英単語・基本動詞</string>
+    <string name="subject">教科</string>
+    <string name="subject_hint">例: 英語</string>
+    <string name="category">科目</string>
+    <string name="category_hint">例: 英単語</string>
+    <string name="unit">単元</string>
+    <string name="unit_hint">例: 基本動詞100</string>
+    <string name="scope">学習範囲</string>
+    <string name="scope_hint">学習したい内容を自由に記述してください。AIがこの範囲に基づいて問題を生成します。</string>
+    <string name="create_learning_set">学習セットを作成</string>
+    <string name="update_learning_set">学習セットを更新</string>
+    <string name="delete_learning_set_confirm">この学習セットを削除してもよろしいですか？\n関連する問題と履歴もすべて削除されます。</string>
+    
+    <!-- Learning -->
+    <string name="learn_continuous">連続学習</string>
+    <string name="learn_review">弱点復習</string>
+    <string name="learn_random">ランダム出題</string>
+    <string name="learn_unit">単元別出題</string>
+    <string name="question_number">第 %1$d 問 / 全 %2$d 問</string>
+    <string name="select_answer">答えを選んでください</string>
+    <string name="submit_answer">回答する</string>
+    <string name="show_explanation">解説を見る</string>
+    <string name="next_question">次の問題へ</string>
+    <string name="finish_session">学習を終了</string>
+    <string name="session_complete">学習セッション完了！</string>
+    <string name="correct_answer">正解！</string>
+    <string name="incorrect_answer">不正解…</string>
+    <string name="your_answer">あなたの回答</string>
+    <string name="correct_answer_label">正解</string>
+    <string name="explanation">解説</string>
+    <string name="response_time">回答時間: %1$.1f秒</string>
+    
+    <!-- Statistics -->
+    <string name="statistics_title">統計・分析</string>
+    <string name="stat_overall">総合</string>
+    <string name="stat_by_category">単元別</string>
+    <string name="stat_by_difficulty">難易度別</string>
+    <string name="stat_trend">推移</string>
+    <string name="stat_ai_report">AIレポート</string>
+    <string name="total_questions">総問題数</string>
+    <string name="total_correct">正解数</string>
+    <string name="accuracy">正答率</string>
+    <string name="study_time">学習時間</string>
+    <string name="avg_response_time">平均回答時間</string>
+    <string name="total_sessions">セッション数</string>
+    <string name="current_streak">連続学習日数</string>
+    <string name="longest_streak">最長連続日数</string>
+    <string name="period_today">今日</string>
+    <string name="period_week">今週</string>
+    <string name="period_month">今月</string>
+    <string name="period_all">全期間</string>
+    <string name="no_data">データがありません</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_api_keys">APIキー管理</string>
+    <string name="settings_widget">ウィジェット設定</string>
+    <string name="settings_data">データ管理</string>
+    <string name="settings_about">アプリについて</string>
+    <string name="settings_theme">テーマ</string>
+    <string name="theme_system">システム設定に従う</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
+    
+    <!-- API Key Management -->
+    <string name="api_key_title">APIキー管理</string>
+    <string name="api_key_add">APIキーを追加</string>
+    <string name="api_key_name">名前</string>
+    <string name="api_key_name_hint">例: OpenAI GPT-4o</string>
+    <string name="api_key_provider">プロバイダー</string>
+    <string name="api_key_model">モデル</string>
+    <string name="api_key_model_hint">例: gpt-4o</string>
+    <string name="api_key_value">APIキー</string>
+    <string name="api_key_value_hint">sk-...</string>
+    <string name="api_key_base_url">ベースURL (任意)</string>
+    <string name="api_key_base_url_hint">カスタムエンドポイントの場合のみ</string>
+    <string name="api_key_priority">優先度</string>
+    <string name="api_key_usage_type">用途</string>
+    <string name="api_key_usage_generation">問題生成のみ</string>
+    <string name="api_key_usage_analysis">分析のみ</string>
+    <string name="api_key_usage_both">両方</string>
+    <string name="api_key_enabled">有効</string>
+    <string name="api_key_test">接続テスト</string>
+    <string name="api_key_test_success">接続テスト成功</string>
+    <string name="api_key_test_failed">接続テスト失敗</string>
+    <string name="api_key_delete_confirm">このAPIキーを削除してもよろしいですか？</string>
+    <string name="api_key_encrypted_note">APIキーは暗号化して安全に保存されます</string>
+    
+    <!-- Provider Names -->
+    <string name="provider_openai">OpenAI</string>
+    <string name="provider_anthropic">Anthropic</string>
+    <string name="provider_google">Google (Gemini)</string>
+    <string name="provider_custom">カスタム</string>
+    
+    <!-- Widget -->
+    <string name="widget_configure">設定</string>
+    <string name="widget_learning_set">学習セット</string>
+    <string name="widget_update_interval">更新間隔</string>
+    <string name="widget_question_count">キャッシュ問題数</string>
+    <string name="widget_show_explanation">解説を表示</string>
+    <string name="widget_auto_next">自動で次の問題へ</string>
+    <string name="widget_no_questions">問題がありません\nアプリで問題を生成してください</string>
+    <string name="widget_last_updated">更新: %1$s</string>
+    <string name="widget_tap_to_answer">タップして回答</string>
+    
+    <!-- Data Management -->
+    <string name="data_backup">バックアップ</string>
+    <string name="data_restore">リストア</string>
+    <string name="data_export">エクスポート</string>
+    <string name="data_clear_all">すべてのデータを削除</string>
+    <string name="data_clear_confirm">すべての学習データを削除してもよろしいですか？\nこの操作は元に戻せません。</string>
+    
+    <!-- About -->
+    <string name="about_version">バージョン %1$s</string>
+    <string name="about_privacy">プライバシーポリシー</string>
+    <string name="about_license">オープンソースライセンス</string>
+    <string name="about_contact">お問い合わせ</string>
+    
+    <!-- AI Analysis -->
+    <string name="ai_analysis_generating">AIが学習状況を分析中…</string>
+    <string name="ai_analysis_weakness">弱点分析</string>
+    <string name="ai_analysis_trend">傾向分析</string>
+    <string name="ai_analysis_recommendation">おすすめ学習</string>
+    <string name="ai_analysis_no_data">分析に必要なデータが不足しています\nもっと問題を解いてから試してください</string>
+    
+    <!-- Question Generation -->
+    <string name="generating_questions">AIが問題を生成中…</string>
+    <string name="questions_generated">%1$d 問生成しました</string>
+    <string name="generation_failed">問題生成に失敗しました</string>
+    <string name="generation_failed_retry">再試行しますか？</string>
+    <string name="no_api_key">APIキーが設定されていません\n設定からAPIキーを追加してください</string>
+</resources>

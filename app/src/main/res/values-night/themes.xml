@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Theme overrides if needed -->
+    <style name="Theme.AiLearning" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary colors -->
+        <item name="colorPrimary">@color/md_sys_color_dark_primary</item>
+        <item name="colorPrimaryVariant">@color/md_sys_color_dark_primary_container</item>
+        <item name="colorOnPrimary">@color/md_sys_color_dark_on_primary</item>
+        <!-- Secondary colors -->
+        <item name="colorSecondary">@color/md_sys_color_dark_secondary</item>
+        <item name="colorSecondaryVariant">@color/md_sys_color_dark_secondary_container</item>
+        <item name="colorOnSecondary">@color/md_sys_color_dark_on_secondary</item>
+        <!-- Tertiary colors -->
+        <item name="colorTertiary">@color/md_sys_color_dark_tertiary</item>
+        <item name="colorOnTertiary">@color/md_sys_color_dark_on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/md_sys_color_dark_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/md_sys_color_dark_on_tertiary_container</item>
+        <!-- Error colors -->
+        <item name="colorError">@color/md_sys_color_dark_error</item>
+        <item name="colorErrorContainer">@color/md_sys_color_dark_error_container</item>
+        <item name="colorOnError">@color/md_sys_color_dark_on_error</item>
+        <item name="colorOnErrorContainer">@color/md_sys_color_dark_on_error_container</item>
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/md_sys_color_dark_background</item>
+        <item name="colorSurface">@color/md_sys_color_dark_surface</item>
+        <item name="colorOnSurface">@color/md_sys_color_dark_on_surface</item>
+        <!-- Surface variant -->
+        <item name="colorSurfaceVariant">@color/md_sys_color_dark_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/md_sys_color_dark_on_surface_variant</item>
+        <!-- Outline -->
+        <item name="colorOutline">@color/md_sys_color_dark_outline</item>
+        <item name="colorOutlineVariant">@color/md_sys_color_dark_outline_variant</item>
+        
+        <!-- Window -->
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
+</resources>

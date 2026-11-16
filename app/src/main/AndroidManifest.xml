@@ -33,6 +33,16 @@
             </intent-filter>
         </activity>
 
+        <!-- App Widget Configure Activity -->
+        <activity
+            android:name=".presentation.widget.WidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AiLearning">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <!-- App Widget Provider -->
         <receiver
             android:name=".presentation.widget.QuizWidgetProvider"

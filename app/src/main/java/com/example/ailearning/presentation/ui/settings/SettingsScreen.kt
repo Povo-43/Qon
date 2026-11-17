@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
@@ -25,10 +26,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ailearning.domain.model.AiApiStyle
+import com.example.ailearning.domain.model.AiProvider
+import com.example.ailearning.domain.model.AiProviderCatalog
 import com.example.ailearning.domain.model.ApiKey
 import com.example.ailearning.presentation.ui.components.AppTopBar
 import com.example.ailearning.presentation.viewmodel.SettingsViewModel
@@ -156,8 +162,9 @@ fun SettingsScreen(
                             }
                             Text("APIキー未登録", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                "OpenAI・Claude・GeminiのいずれかのAPIキーを追加すると、AI問題生成が使えます。",
+                                "OpenAI・Claude・Gemini・NVIDIA NIM・Kilo など、お好みのプロバイダを登録すると AI 問題生成が使えます。OpenAI 互換の独自エンドポイントも指定できます。",
                                 fontSize = 12.sp,
+                                lineHeight = 18.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Button(
@@ -438,17 +445,26 @@ private fun ApiKeyEditorDialog(
         usageType: String
     ) -> Unit
 ) {
+    val initialProvider = remember(editingKey) {
+        AiProviderCatalog.resolve(editingKey?.provider ?: ApiKey.PROVIDER_OPENAI)
+    }
     var name by remember(editingKey) { mutableStateOf(editingKey?.name.orEmpty()) }
-    var provider by remember(editingKey) { mutableStateOf(editingKey?.provider ?: ApiKey.PROVIDER_OPENAI) }
+    var provider by remember(editingKey) { mutableStateOf(initialProvider.id) }
     var model by remember(editingKey) { mutableStateOf(editingKey?.model.orEmpty()) }
     var rawKey by remember(editingKey) { mutableStateOf("") }
-    var baseUrl by remember(editingKey) { mutableStateOf(editingKey?.baseUrl.orEmpty()) }
+    var baseUrl by remember(editingKey) {
+        mutableStateOf(editingKey?.baseUrl ?: initialProvider.baseUrl)
+    }
     var priority by remember(editingKey) { mutableStateOf((editingKey?.priority ?: 1).toString()) }
     var usageType by remember(editingKey) { mutableStateOf(editingKey?.usageType ?: ApiKey.USAGE_GENERATION) }
 
+    val providerInfo = AiProviderCatalog.resolve(provider)
     val isNew = editingKey == null
-    val canSave = name.isNotBlank() && provider.isNotBlank() && model.isNotBlank() &&
-        (!isNew || rawKey.isNotBlank())
+    // ローカル推論（Ollama / LM Studio）は API キー不要
+    val keyRequired = isNew && !providerInfo.isLocal
+    val canSave = name.isNotBlank() && model.isNotBlank() &&
+        (!providerInfo.requiresBaseUrl || baseUrl.isNotBlank()) &&
+        (!keyRequired || rawKey.isNotBlank())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -478,28 +494,100 @@ private fun ApiKeyEditorDialog(
                 )
 
                 Text("プロバイダ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                var providerMenuExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = providerMenuExpanded,
+                    onExpandedChange = { providerMenuExpanded = !providerMenuExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = providerInfo.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("選択中") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerMenuExpanded)
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = providerMenuExpanded,
+                        onDismissRequest = { providerMenuExpanded = false }
+                    ) {
+                        AiProviderCatalog.providers.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(
+                                            text = option.displayName,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        if (option.description.isNotBlank()) {
+                                            Text(
+                                                text = option.description,
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    val previous = AiProviderCatalog.resolve(provider)
+                                    if (baseUrl.isBlank() || baseUrl == previous.baseUrl) {
+                                        baseUrl = option.baseUrl
+                                    }
+                                    if (model.isBlank() || model == previous.exampleModel) {
+                                        model = option.exampleModel
+                                    }
+                                    provider = option.id
+                                    providerMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    listOf(
-                        ApiKey.PROVIDER_OPENAI,
-                        ApiKey.PROVIDER_ANTHROPIC,
-                        ApiKey.PROVIDER_GOOGLE
-                    ).forEach { p ->
-                        FilterChip(
-                            selected = provider == p,
-                            onClick = { provider = p },
-                            label = { Text(shortProviderLabel(p), fontSize = 11.sp) }
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Rounded.Lan,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = buildString {
+                            append(styleLabel(providerInfo.apiStyle))
+                            if (providerInfo.isLocal) append(" ・ ローカル")
+                            if (providerInfo.isLocal) {
+                                append(" ・ PC のサーバーを起動してください")
+                            }
+                        },
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 OutlinedTextField(
                     value = model,
                     onValueChange = { model = it },
                     label = { Text("モデル名") },
-                    placeholder = { Text(modelHint(provider)) },
+                    placeholder = {
+                        Text(
+                            if (providerInfo.exampleModel.isNotBlank()) {
+                                "例: ${providerInfo.exampleModel}"
+                            } else {
+                                "例: モデル名"
+                            }
+                        )
+                    },
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -508,8 +596,22 @@ private fun ApiKeyEditorDialog(
                 OutlinedTextField(
                     value = rawKey,
                     onValueChange = { rawKey = it },
-                    label = { Text(if (isNew) "APIキー" else "APIキー（変更する場合のみ）") },
-                    placeholder = { Text(if (isNew) "sk-..." else "空欄なら現在のキーを使用") },
+                    label = {
+                        Text(
+                            when {
+                                !isNew -> "APIキー（変更する場合のみ）"
+                                providerInfo.isLocal -> "APIキー（任意）"
+                                else -> "APIキー"
+                            }
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            if (!isNew) "空欄なら現在のキーを使用"
+                            else if (providerInfo.isLocal) "空欄でOK"
+                            else providerInfo.keyHint
+                        )
+                    },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     shape = RoundedCornerShape(14.dp),
@@ -519,8 +621,23 @@ private fun ApiKeyEditorDialog(
                 OutlinedTextField(
                     value = baseUrl,
                     onValueChange = { baseUrl = it },
-                    label = { Text("ベースURL（任意）") },
-                    placeholder = { Text("カスタムAPIのURL") },
+                    label = {
+                        Text(
+                            if (providerInfo.requiresBaseUrl) "ベースURL（必須）" else "ベースURL"
+                        )
+                    },
+                    placeholder = { Text("https://example.com/v1/") },
+                    supportingText = {
+                        Text(
+                            text = if (providerInfo.isLocal) {
+                                "エミュレータから PC へは 10.0.2.2、実機は PC の IP を指定"
+                            } else {
+                                "…/chat/completions まで貼り付けても自動で補正します"
+                            },
+                            fontSize = 10.sp
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -593,28 +710,14 @@ private fun ApiKeyEditorDialog(
     )
 }
 
-private fun shortProviderLabel(provider: String): String = when (provider) {
-    ApiKey.PROVIDER_OPENAI -> "OpenAI"
-    ApiKey.PROVIDER_ANTHROPIC -> "Claude"
-    ApiKey.PROVIDER_GOOGLE -> "Gemini"
-    ApiKey.PROVIDER_CUSTOM -> "カスタム"
-    else -> provider
-}
+private fun shortProviderLabel(provider: String): String =
+    AiProviderCatalog.shortLabel(provider)
 
-private fun providerLabel(provider: String): String = when (provider) {
-    ApiKey.PROVIDER_OPENAI -> "OpenAI"
-    ApiKey.PROVIDER_ANTHROPIC -> "Anthropic"
-    ApiKey.PROVIDER_GOOGLE -> "Google"
-    ApiKey.PROVIDER_CUSTOM -> "Custom"
-    else -> provider
-}
+private fun providerLabel(provider: String): String =
+    AiProviderCatalog.label(provider)
 
-private fun providerColor(provider: String): Color = when (provider) {
-    ApiKey.PROVIDER_OPENAI -> Color(0xFF10A37F)
-    ApiKey.PROVIDER_ANTHROPIC -> Color(0xFFD97757)
-    ApiKey.PROVIDER_GOOGLE -> Color(0xFF4285F4)
-    else -> Color(0xFF6366F1)
-}
+private fun providerColor(provider: String): Color =
+    Color(AiProviderCatalog.brandColor(provider))
 
 private fun usageLabel(usageType: String): String = when (usageType) {
     ApiKey.USAGE_GENERATION -> "問題生成"
@@ -623,9 +726,8 @@ private fun usageLabel(usageType: String): String = when (usageType) {
     else -> usageType
 }
 
-private fun modelHint(provider: String): String = when (provider) {
-    ApiKey.PROVIDER_OPENAI -> "例: gpt-4o-mini"
-    ApiKey.PROVIDER_ANTHROPIC -> "例: claude-3-5-sonnet-20241022"
-    ApiKey.PROVIDER_GOOGLE -> "例: gemini-1.5-flash"
-    else -> "例: モデル名"
+private fun styleLabel(style: AiApiStyle): String = when (style) {
+    AiApiStyle.OPENAI -> "OpenAI 互換 API"
+    AiApiStyle.ANTHROPIC -> "Anthropic Messages API"
+    AiApiStyle.GEMINI -> "Google Gemini API"
 }

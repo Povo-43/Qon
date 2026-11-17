@@ -28,7 +28,7 @@ data class GeminiGenerationConfig(
 
 @Serializable
 data class GeminiResponse(
-    val candidates: List<GeminiCandidate>,
+    val candidates: List<GeminiCandidate> = emptyList(),
     val usageMetadata: GeminiUsageMetadata? = null
 )
 

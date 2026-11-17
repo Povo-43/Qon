@@ -33,9 +33,14 @@ class GeminiApiClient @Inject constructor(
     
     private val retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(BaseUrlNormalizer.forGemini(baseUrl))
             .addConverterFactory(GsonConverterFactory.create())
-            .client(OkHttpClient.Builder().build())
+            .client(
+                OkHttpClient.Builder()
+                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+            )
             .build()
     }
     
@@ -59,7 +64,7 @@ class GeminiApiClient @Inject constructor(
                 )
             )
             
-            val response = service.generateContent("${model}:generateContent?key=$apiKey", req)
+            val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
             
             if (!response.isSuccessful) {
                 return@withContext Result.failure(Exception("API Error: ${response.code()} - ${response.errorBody()?.string()}"))
@@ -107,7 +112,7 @@ class GeminiApiClient @Inject constructor(
                 )
             )
             
-            val response = service.generateContent("${model}:generateContent?key=$apiKey", req)
+            val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
             
             if (!response.isSuccessful) {
                 return@withContext Result.failure(Exception("API Error: ${response.code()}"))
@@ -133,7 +138,7 @@ class GeminiApiClient @Inject constructor(
         try {
             val contents = listOf(GeminiContent("user", listOf(GeminiPart("Hello"))))
             val req = GeminiRequest(contents = contents)
-            val response = service.generateContent("${model}:generateContent?key=$apiKey", req)
+            val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
             if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Test failed: ${response.code()}"))
         } catch (e: Exception) {
             Result.failure(e)

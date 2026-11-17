@@ -19,8 +19,8 @@ data class AnthropicMessage(
 
 @Serializable
 data class AnthropicResponse(
-    val content: List<AnthropicContent>,
-    val usage: AnthropicUsage
+    val content: List<AnthropicContent> = emptyList(),
+    val usage: AnthropicUsage? = null
 )
 
 @Serializable

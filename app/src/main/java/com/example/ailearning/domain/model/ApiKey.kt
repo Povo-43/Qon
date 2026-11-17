@@ -8,7 +8,7 @@ import java.util.UUID
 data class ApiKey(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val provider: String,          // "openai" / "anthropic" / "google" / "custom"
+    val provider: String,          // AiProviderCatalog の id
     val model: String,
     val encryptedKey: String,      // 暗号化済みAPIキー
     val baseUrl: String? = null,
@@ -26,15 +26,35 @@ data class ApiKey(
         const val PROVIDER_OPENAI = "openai"
         const val PROVIDER_ANTHROPIC = "anthropic"
         const val PROVIDER_GOOGLE = "google"
+        const val PROVIDER_NVIDIA = "nvidia"
+        const val PROVIDER_KILO = "kilo"
+        const val PROVIDER_OPENROUTER = "openrouter"
+        const val PROVIDER_GROQ = "groq"
+        const val PROVIDER_DEEPSEEK = "deepseek"
+        const val PROVIDER_XAI = "xai"
+        const val PROVIDER_MISTRAL = "mistral"
+        const val PROVIDER_TOGETHER = "together"
+        const val PROVIDER_FIREWORKS = "fireworks"
+        const val PROVIDER_PERPLEXITY = "perplexity"
+        const val PROVIDER_CEREBRAS = "cerebras"
+        const val PROVIDER_SAMBANOVA = "sambanova"
+        const val PROVIDER_NEBIUS = "nebius"
+        const val PROVIDER_MOONSHOT = "moonshot"
+        const val PROVIDER_ZHIPU = "zhipu"
+        const val PROVIDER_OLLAMA = AiProvider.ID_OLLAMA
+        const val PROVIDER_LMSTUDIO = AiProvider.ID_LMSTUDIO
         const val PROVIDER_CUSTOM = "custom"
-        
+
         const val USAGE_GENERATION = "question_generation"
         const val USAGE_ANALYSIS = "analysis"
         const val USAGE_BOTH = "both"
-        
-        val ALL_PROVIDERS = listOf(PROVIDER_OPENAI, PROVIDER_ANTHROPIC, PROVIDER_GOOGLE, PROVIDER_CUSTOM)
+
+        /** カタログに登録された全プロバイダ（表示順）。 */
+        val ALL_PROVIDERS: List<String>
+            get() = AiProviderCatalog.providers.map { it.id }
+
         val ALL_USAGE_TYPES = listOf(USAGE_GENERATION, USAGE_ANALYSIS, USAGE_BOTH)
     }
-    
-    fun getDisplayName(): String = "$name ($provider - $model)"
+
+    fun getDisplayName(): String = "$name (${AiProviderCatalog.label(provider)} - $model)"
 }

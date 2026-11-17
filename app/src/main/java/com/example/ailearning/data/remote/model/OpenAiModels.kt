@@ -24,8 +24,8 @@ data class OpenAiResponseFormat(
 
 @Serializable
 data class OpenAiChatResponse(
-    val choices: List<OpenAiChoice>,
-    val usage: OpenAiUsage
+    val choices: List<OpenAiChoice> = emptyList(),
+    val usage: OpenAiUsage? = null
 )
 
 @Serializable

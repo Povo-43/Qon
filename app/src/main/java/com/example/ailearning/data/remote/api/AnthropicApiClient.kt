@@ -32,11 +32,26 @@ class AnthropicApiClient @Inject constructor(
     override val providerName = "anthropic"
     override val supportedModels = listOf("claude-3-5-sonnet-20241022", "claude-3-haiku-20240307")
     
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("x-api-key", apiKey)
+                    .header("Accept", "application/json")
+                    .build()
+                chain.proceed(request)
+            }
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
     private val retrofit by lazy {
         Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(BaseUrlNormalizer.forAnthropic(baseUrl))
             .addConverterFactory(GsonConverterFactory.create())
-            .client(OkHttpClient.Builder().build())
+            .client(httpClient)
             .build()
     }
     
@@ -79,7 +94,7 @@ class AnthropicApiClient @Inject constructor(
             Result.success(GenerateQuestionsResponse(
                 questions = questions,
                 modelUsed = model,
-                tokensUsed = body.usage.input_tokens + body.usage.output_tokens
+                tokensUsed = (body.usage?.input_tokens ?: 0) + (body.usage?.output_tokens ?: 0)
             ))
         } catch (e: Exception) {
             Result.failure(e)
@@ -112,7 +127,7 @@ class AnthropicApiClient @Inject constructor(
             Result.success(AnalyzeLearningResponse(
                 analysis = content,
                 modelUsed = model,
-                tokensUsed = body.usage.input_tokens + body.usage.output_tokens
+                tokensUsed = (body.usage?.input_tokens ?: 0) + (body.usage?.output_tokens ?: 0)
             ))
         } catch (e: Exception) {
             Result.failure(e)

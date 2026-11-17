@@ -49,6 +49,13 @@ class LearningSetViewModel : ViewModel() {
         val result = createLearningSetUseCase(name, subject, category, unit, scope)
         if (result.isFailure) {
             _error.value = result.exceptionOrNull()?.message ?: "学習セットの作成に失敗しました"
+        } else {
+            // 作成直後に裏でAI問題を事前生成しておく
+            result.getOrNull()?.id?.let { id ->
+                com.example.ailearning.presentation.work.QuestionPrefetchScheduler.requestPrefetch(
+                    com.example.ailearning.di.AppContainer.appContext, id
+                )
+            }
         }
         return result
     }

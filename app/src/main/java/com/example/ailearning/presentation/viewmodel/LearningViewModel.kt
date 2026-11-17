@@ -63,6 +63,9 @@ class LearningViewModel : ViewModel() {
     var currentMode: String = "continuous"
     var currentCategory: String? = null
     var currentDifficulty: Int? = null
+
+    /** バックグラウンド生成完了時に、セッションが変わっていないか確認するためのトークン */
+    private var sessionToken = 0
     
     val currentQuestionNumber: Int
         get() = _currentQuestionIndex.value + 1
@@ -76,6 +79,8 @@ class LearningViewModel : ViewModel() {
     fun startLearning(learningSetId: String, mode: String, count: Int = 10) {
         currentMode = mode
         viewModelScope.launch {
+            sessionToken++
+            val token = sessionToken
             _isLoading.value = true
             _error.value = null
             _sessionComplete.value = false
@@ -88,9 +93,19 @@ class LearningViewModel : ViewModel() {
             }
             
             _session.value = sessionResult.getOrNull()
-            
+
+            var deferGeneration = false
             val questionsResult = when (mode) {
-                "continuous" -> generateQuestionsUseCase(learningSetId, count)
+                "continuous" -> {
+                    // 保存済みの問題があれば即座に開始し、新しい問題は裏で生成する
+                    val stored = getRandomQuestionsUseCase(learningSetId, count).getOrElse { emptyList() }
+                    if (stored.isNotEmpty()) {
+                        deferGeneration = true
+                        Result.success(stored)
+                    } else {
+                        generateQuestionsUseCase(learningSetId, count)
+                    }
+                }
                 "review" -> getWeakQuestionsUseCase(learningSetId, count)
                 "random" -> getRandomQuestionsUseCase(learningSetId, count)
                 "unit" -> {
@@ -104,7 +119,7 @@ class LearningViewModel : ViewModel() {
                 }
                 else -> getRandomQuestionsUseCase(learningSetId, count)
             }
-            
+
             if (questionsResult.isSuccess) {
                 val qs = questionsResult.getOrNull() ?: emptyList()
                 if (qs.isEmpty()) {
@@ -117,6 +132,23 @@ class LearningViewModel : ViewModel() {
                 _questions.value = qs
                 _currentQuestionIndex.value = 0
                 _currentQuestion.value = qs.firstOrNull()
+
+                if (deferGeneration) {
+                    viewModelScope.launch {
+                        _isGenerating.value = true
+                        val result = generateQuestionsUseCase(learningSetId, count)
+                        // 生成中に別セッションへ切り替わっていたら反映しない
+                        if (token == sessionToken && result.isSuccess) {
+                            val fresh = result.getOrDefault(emptyList())
+                            if (fresh.isNotEmpty()) {
+                                _questions.value = _questions.value + fresh
+                            }
+                        }
+                        if (token == sessionToken) {
+                            _isGenerating.value = false
+                        }
+                    }
+                }
             } else {
                 _error.value = questionsResult.exceptionOrNull()?.message ?: "問題の取得に失敗"
             }
@@ -208,6 +240,7 @@ class LearningViewModel : ViewModel() {
     }
     
     fun reset() {
+        sessionToken++
         _questions.value = emptyList()
         _currentQuestionIndex.value = 0
         _currentQuestion.value = null

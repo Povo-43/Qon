@@ -16,7 +16,12 @@ object AppContainer {
     private lateinit var encryptionManager: EncryptionManager
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 
+    /** WorkManager などから使うアプリケーションコンテキスト。 */
+    lateinit var appContext: Context
+        private set
+
     fun init(context: Context) {
+        appContext = context.applicationContext
         database = DatabaseModule.provideDatabase(context)
         encryptionManager = EncryptionManager(context)
     }

@@ -42,6 +42,13 @@ class WidgetRefreshWorker(private val context: Context, params: WorkerParameters
         // 定期更新スケジュールを確実に用意する（既にあれば KEEP で維持）
         WidgetScheduler.schedulePeriodicRefresh(context, widgetId, latestConfig.updateIntervalMinutes)
 
+        if (question == null) {
+            // 学習セットに問題が無い → 裏で事前生成を依頼して次回以降表示される
+            com.example.ailearning.presentation.work.QuestionPrefetchScheduler.requestPrefetch(
+                context, latestConfig.learningSetId
+            )
+        }
+
         WidgetRenderer.render(
             context, manager, widgetId,
             config = latestConfig,

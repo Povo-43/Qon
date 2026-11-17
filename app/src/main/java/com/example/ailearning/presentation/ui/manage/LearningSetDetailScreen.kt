@@ -69,6 +69,39 @@ fun LearningSetDetailScreen(
             } else {
                 HeroHeader(set.name, set.subject, set.category, set.unit, set.scope)
 
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val isPreparing by remember(learningSetId) {
+                    com.example.ailearning.presentation.work.QuestionPrefetchScheduler
+                        .observePreparing(context, learningSetId)
+                }.collectAsState(initial = false)
+
+                if (isPreparing) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Text(
+                                text = "AIが問題を準備中…\n完了すると自動でこのセットに追加されます",
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
+                    }
+                }
+
                 Text(text = "学習モード", fontSize = 17.sp, fontWeight = FontWeight.Bold)
 
                 ModeCard(

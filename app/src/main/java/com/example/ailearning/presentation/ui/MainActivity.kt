@@ -47,6 +47,7 @@ import com.example.ailearning.presentation.ui.manage.LearningSetDetailScreen
 import com.example.ailearning.presentation.ui.settings.SettingsScreen
 import com.example.ailearning.presentation.ui.statistics.StatisticsScreen
 import com.example.ailearning.presentation.ui.theme.AiLearningTheme
+import com.example.ailearning.presentation.work.QuestionPrefetchScheduler
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
 import com.example.ailearning.presentation.viewmodel.LearningViewModel
 import com.example.ailearning.presentation.viewmodel.SettingsViewModel
@@ -57,6 +58,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 問題が少ない学習セットを裏で補充する（起動時 + 定期）
+        QuestionPrefetchScheduler.ensurePeriodicTopUp(this)
+        QuestionPrefetchScheduler.requestPrefetchAll(this)
 
         val learningSetViewModel: LearningSetViewModel = ViewModelProvider(this)[LearningSetViewModel::class.java]
         val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]

@@ -14,6 +14,9 @@ on:
 env:
   JDK_VERSION: 17
 
+permissions:
+  contents: write
+
 jobs:
   build-release:
     runs-on: ubuntu-latest
@@ -82,15 +85,18 @@ jobs:
             TAG_NAME="${{ github.event.inputs.tag }}"
           fi
           RELEASE_NAME="Qon ${TAG_NAME#v}"
-          
-          gh release create "$TAG_NAME" \
-            --title "$RELEASE_NAME" \
-            --notes "Qon AI Learning App release ${TAG_NAME#v}\n\nBuilt from commit ${{ github.sha }}" \
-            app/build/outputs/apk/debug/app-debug.apk \
-            --prerelease=false \
-            --generate-notes 2>/dev/null || \
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists; uploading APK with --clobber"
+            gh release upload "$TAG_NAME" "$APK_PATH" --clobber
+          else
             gh release create "$TAG_NAME" \
-            --title "$RELEASE_NAME" \
-            --notes "Qon AI Learning App release ${TAG_NAME#v}" \
-            app/build/outputs/apk/debug/app-debug.apk \
-            --prerelease=false
+              --title "$RELEASE_NAME" \
+              --notes "Qon AI Learning App release ${TAG_NAME#v}
+
+          Built from commit ${{ github.sha }} via GitHub Actions." \
+              "$APK_PATH" \
+              --prerelease=false \
+              --generate-notes
+          fi

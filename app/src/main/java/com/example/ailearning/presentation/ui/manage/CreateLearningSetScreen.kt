@@ -2,7 +2,10 @@ package com.example.ailearning.presentation.ui.manage
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,13 +31,51 @@ fun CreateLearningSetScreen(
 
     val error by viewModel.error.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val canSave = !isSaving && name.isNotBlank() && subject.isNotBlank() &&
+        category.isNotBlank() && unit.isNotBlank()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AppTopBar(
-                title = "学習セット作成",
+                title = "新しい学習セット",
                 onBack = onCancel
             )
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.navigationBarsPadding(),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 16.dp
+            ) {
+                Button(
+                    onClick = {
+                        if (isSaving) return@Button
+                        isSaving = true
+                        coroutineScope.launch {
+                            val result = viewModel.createLearningSet(name, subject, category, unit, scope)
+                            isSaving = false
+                            if (result.isSuccess) onSave()
+                        }
+                    },
+                    enabled = canSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text("学習セットを作成", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(
@@ -42,14 +83,40 @@ fun CreateLearningSetScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Text(
-                text = "学習したい範囲を登録してください。AIがこの情報をもとに問題を生成します。",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = "AIが問題をつくります",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "学習したい範囲を入力してください。科目・単元の情報をもとに出題します。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
+            Text(text = "基本情報", fontSize = 15.sp, fontWeight = FontWeight.Bold)
 
             FormField(
                 label = "学習セット名",
@@ -82,37 +149,11 @@ fun CreateLearningSetScreen(
                 placeholder = "例: 教科書 p.40〜p.58"
             )
 
-            Button(
-                onClick = {
-                    if (isSaving) return@Button
-                    isSaving = true
-                    coroutineScope.launch {
-                        val result = viewModel.createLearningSet(name, subject, category, unit, scope)
-                        isSaving = false
-                        if (result.isSuccess) {
-                            onSave()
-                        }
-                    }
-                },
-                enabled = !isSaving &&
-                    name.isNotBlank() && subject.isNotBlank() &&
-                    category.isNotBlank() && unit.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp)
-            ) {
-                if (isSaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("作成", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
             error?.let { msg ->
                 Text(text = msg, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -124,15 +165,13 @@ private fun FormField(
     onValueChange: (String) -> Unit,
     placeholder: String
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            placeholder = { Text(placeholder, fontSize = 14.sp) },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium
-        )
-    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(placeholder, fontSize = 14.sp) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp)
+    )
 }

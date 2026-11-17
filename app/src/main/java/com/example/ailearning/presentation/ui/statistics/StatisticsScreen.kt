@@ -1,17 +1,29 @@
 package com.example.ailearning.presentation.ui.statistics
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.Quiz
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ailearning.domain.model.AiAnalysisResult
+import com.example.ailearning.domain.model.DailyStatistics
 import com.example.ailearning.domain.model.StatisticsPeriod
 import com.example.ailearning.presentation.ui.components.AppTopBar
 import com.example.ailearning.presentation.ui.components.CategoryStatRow
@@ -20,7 +32,6 @@ import com.example.ailearning.presentation.ui.components.StatCard
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
 import com.example.ailearning.presentation.viewmodel.StatisticsViewModel
 import kotlinx.serialization.json.Json
-import com.example.ailearning.domain.model.AiAnalysisResult
 
 @Composable
 fun StatisticsScreen(
@@ -33,6 +44,7 @@ fun StatisticsScreen(
     val overallStats by viewModel.overallStats.collectAsState()
     val categoryStats by viewModel.categoryStats.collectAsState()
     val difficultyStats by viewModel.difficultyStats.collectAsState()
+    val trendData by viewModel.trendData.collectAsState()
     val aiAnalysis by viewModel.aiAnalysis.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
@@ -55,6 +67,7 @@ fun StatisticsScreen(
     val selectedSet = learningSets.firstOrNull { it.id == selectedSetId }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AppTopBar(
                 title = "統計・AI分析",
@@ -70,26 +83,39 @@ fun StatisticsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text("📊", fontSize = 40.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(24.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.TrendingUp,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text("統計はまだありません", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     Text(
                         "学習セットを作成して問題を解くと、ここに正答率や苦手分野が表示されます。",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 Column(
-                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    // 学習セット選択
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 20.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         learningSets.forEach { set ->
@@ -101,12 +127,11 @@ fun StatisticsScreen(
                         }
                     }
 
-                    // 期間選択
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         PeriodChip("今日", StatisticsPeriod.TODAY, period) { period = it }
@@ -117,7 +142,7 @@ fun StatisticsScreen(
 
                     overallStats?.let { stats ->
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -125,6 +150,7 @@ fun StatisticsScreen(
                                     title = "解答数",
                                     value = stats.totalQuestions.toString(),
                                     subtitle = null,
+                                    icon = Icons.Rounded.Quiz,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.weight(1f)
                                 )
@@ -132,7 +158,8 @@ fun StatisticsScreen(
                                     title = "正答率",
                                     value = "${(stats.overallAccuracy * 100).toInt()}%",
                                     subtitle = null,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    icon = Icons.Rounded.CheckCircle,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -141,29 +168,51 @@ fun StatisticsScreen(
                                     title = "学習時間",
                                     value = stats.getFormattedStudyTime(),
                                     subtitle = null,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    icon = Icons.Rounded.Timer,
+                                    color = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.weight(1f)
                                 )
                                 StatCard(
                                     title = "連続学習",
                                     value = "${stats.currentStreakDays}日",
                                     subtitle = "最長 ${stats.longestStreakDays}日",
-                                    color = MaterialTheme.colorScheme.primary,
+                                    icon = Icons.Rounded.LocalFireDepartment,
+                                    color = Color(0xFFF97316),
                                     modifier = Modifier.weight(1f)
                                 )
                             }
                         }
                     } ?: Text(
                         text = "この学習セットにはまだ解答履歴がありません。",
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        modifier = Modifier.padding(horizontal = 20.dp)
                     )
+
+                    if (trendData.any { it.total > 0 }) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                Text("学習の推移", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "日ごとの解答数",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(14.dp))
+                                TrendBars(trendData.takeLast(14))
+                            }
+                        }
+                    }
 
                     if (categoryStats.isNotEmpty()) {
                         Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(16.dp)
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 Text("分野別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -176,21 +225,23 @@ fun StatisticsScreen(
 
                     if (difficultyStats.isNotEmpty()) {
                         Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(16.dp)
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            shape = RoundedCornerShape(22.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                                 Text("難易度別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 difficultyStats.forEach { stat ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Text(stat.getDifficultyLabel(), fontSize = 13.sp)
                                         Text(
                                             "${stat.correct}/${stat.total}  ${(stat.accuracy * 100).toInt()}%",
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
@@ -199,30 +250,32 @@ fun StatisticsScreen(
                         }
                     }
 
-                    // AI分析
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                         )
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("AI分析レポート", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Rounded.Psychology, contentDescription = null)
+                                Text("AI分析レポート", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
                             if (isAnalyzing) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Text("AIが分析中…", fontSize = 13.sp)
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Text("AIが分析中…", fontSize = 12.sp)
                                 }
                             } else {
                                 val analysis = aiAnalysis
@@ -236,7 +289,8 @@ fun StatisticsScreen(
                                 }
                                 Button(
                                     onClick = { viewModel.generateAnalysis("weakness") },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                                    shape = RoundedCornerShape(14.dp)
                                 ) {
                                     Text(if (analysis == null) "AI分析を実行" else "再分析する")
                                 }
@@ -249,11 +303,11 @@ fun StatisticsScreen(
                             text = message,
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(horizontal = 20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
                 }
             }
 
@@ -277,6 +331,62 @@ private fun PeriodChip(
 }
 
 @Composable
+private fun TrendBars(data: List<DailyStatistics>) {
+    val max = (data.maxOfOrNull { it.total } ?: 0).coerceAtLeast(1)
+    Row(
+        modifier = Modifier.fillMaxWidth().height(120.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        data.forEach { day ->
+            val fraction = if (day.total > 0) {
+                (day.total.toFloat() / max).coerceAtLeast(0.06f)
+            } else {
+                0f
+            }
+            Column(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = Arrangement.Bottom,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(fraction.coerceIn(0f, 1f))
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(6.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            data.firstOrNull()?.date?.takeLast(5).orEmpty(),
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            data.lastOrNull()?.date?.takeLast(5).orEmpty(),
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 private fun AnalysisContent(content: String) {
     val parsed = remember(content) {
         runCatching {
@@ -285,9 +395,9 @@ private fun AnalysisContent(content: String) {
     }
     if (parsed != null) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(parsed.summary, fontSize = 13.sp)
+            Text(parsed.summary, fontSize = 13.sp, lineHeight = 20.sp)
             if (parsed.recommendations.isNotEmpty()) {
-                Text("おすすめ", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("おすすめ", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 parsed.recommendations.forEach {
                     Text("・$it", fontSize = 12.sp)
                 }

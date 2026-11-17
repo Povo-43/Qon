@@ -1,95 +1,172 @@
 package com.example.ailearning.presentation.ui.theme
 
-import android.content.Context
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFAAC1FF),
-    onPrimary = Color(0xFF0A1F4C),
-    primaryContainer = Color(0xFF1D3A6B),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    secondary = Color(0xFFCCBEFF),
-    onSecondary = Color(0xFF1A0E40),
-    secondaryContainer = Color(0xFF3F2DB1),
-    onSecondaryContainer = Color(0xFFE8E0FF),
-    tertiary = Color(0xFF80E5E0),
-    onTertiary = Color(0xFF002220),
-    tertiaryContainer = Color(0xFF004E4B),
-    onTertiaryContainer = Color(0xFF9CF0EB),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF3B0C0C),
-    errorContainer = Color(0xFF5A1B1B),
-    onErrorContainer = Color(0xFFFFDAD6),
-    background = Color(0xFF101415),
-    onBackground = Color(0xFFE2E2E9),
-    surface = Color(0xFF101415),
-    onSurface = Color(0xFFE2E2E9),
-    surfaceVariant = Color(0xFF44474E),
-    onSurfaceVariant = Color(0xFFC3C7CE),
-    outline = Color(0xFF8E9199),
-    outlineVariant = Color(0xFF44474E),
-    inverseSurface = Color(0xFFE2E2E9),
-    inverseOnSurface = Color(0xFF2E3033),
-    inversePrimary = Color(0xFF3B5BDB),
-    surfaceTint = Color(0xFFAAC1FF)
+private val LightColors = lightColorScheme(
+    primary = Color(0xFF4F46E5),
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFE4E2FF),
+    onPrimaryContainer = Color(0xFF150B63),
+    secondary = Color(0xFF7C3AED),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFF0E7FF),
+    onSecondaryContainer = Color(0xFF2A0B63),
+    tertiary = Color(0xFF0D9488),
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = Color(0xFFCCFBF1),
+    onTertiaryContainer = Color(0xFF00201D),
+    error = Color(0xFFDC2626),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFFEE2E2),
+    onErrorContainer = Color(0xFF450A0A),
+    background = Color(0xFFF6F7FB),
+    onBackground = Color(0xFF14161F),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF14161F),
+    surfaceVariant = Color(0xFFEDEFF7),
+    onSurfaceVariant = Color(0xFF5B6073),
+    outline = Color(0xFF8A90A4),
+    outlineVariant = Color(0xFFDDE1EC),
+    inverseSurface = Color(0xFF2C2F3A),
+    inverseOnSurface = Color(0xFFF1F2F7),
+    inversePrimary = Color(0xFFB9B4FF),
+    surfaceTint = Color(0xFF4F46E5)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF3B5BDB),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD6E4FF),
-    onPrimaryContainer = Color(0xFF001845),
-    secondary = Color(0xFF6C4EDC),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE8E0FF),
-    onSecondaryContainer = Color(0xFF270063),
-    tertiary = Color(0xFF006C68),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFF9CF0EB),
-    onTertiaryContainer = Color(0xFF00211F),
-    error = Color(0xFFBA1A1A),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFFFDAD6),
-    onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFFCFCFF),
-    onBackground = Color(0xFF191C1D),
-    surface = Color(0xFFFCFCFF),
-    onSurface = Color(0xFF191C1D),
-    surfaceVariant = Color(0xFFE0E2EC),
-    onSurfaceVariant = Color(0xFF44474E),
-    outline = Color(0xFF73777F),
-    outlineVariant = Color(0xFFC3C7CE),
-    inverseSurface = Color(0xFF2E3033),
-    inverseOnSurface = Color(0xFFF0F0F7),
-    inversePrimary = Color(0xFFAAC1FF),
-    surfaceTint = Color(0xFF3B5BDB)
+private val DarkColors = darkColorScheme(
+    primary = Color(0xFFB9B4FF),
+    onPrimary = Color(0xFF23149B),
+    primaryContainer = Color(0xFF3A2FC0),
+    onPrimaryContainer = Color(0xFFE4E2FF),
+    secondary = Color(0xFFD2BBFF),
+    onSecondary = Color(0xFF3D1D7A),
+    secondaryContainer = Color(0xFF553197),
+    onSecondaryContainer = Color(0xFFF0E7FF),
+    tertiary = Color(0xFF5EEAD4),
+    onTertiary = Color(0xFF003733),
+    tertiaryContainer = Color(0xFF0F766E),
+    onTertiaryContainer = Color(0xFFCCFBF1),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF0C0E14),
+    onBackground = Color(0xFFE5E7EF),
+    surface = Color(0xFF13161F),
+    onSurface = Color(0xFFE5E7EF),
+    surfaceVariant = Color(0xFF232734),
+    onSurfaceVariant = Color(0xFFAAB0C0),
+    outline = Color(0xFF767C8C),
+    outlineVariant = Color(0xFF353B4A),
+    inverseSurface = Color(0xFFE5E7EF),
+    inverseOnSurface = Color(0xFF2B2F3A),
+    inversePrimary = Color(0xFF4F46E5),
+    surfaceTint = Color(0xFFB9B4FF)
+)
+
+private val QonTypography = Typography(
+    displaySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        letterSpacing = (-0.3).sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.2).sp
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 19.sp,
+        lineHeight = 25.sp
+    ),
+    titleMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 22.sp
+    ),
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 15.sp,
+        lineHeight = 22.sp
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 19.sp
+    ),
+    labelLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 18.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    )
+)
+
+private val QonShapes = Shapes(
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(30.dp)
 )
 
 @Composable
 fun AiLearningTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val view = LocalView.current
     val context = LocalContext.current
-    
-    SideEffect {
-        (context as? androidx.appcompat.app.AppCompatActivity)?.window?.apply {
-            statusBarColor = colorScheme.background.value.toInt()
-            navigationBarColor = colorScheme.background.value.toInt()
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+        darkTheme -> DarkColors
+        else -> LightColors
     }
-    
+
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = QonTypography,
+        shapes = QonShapes,
         content = content
     )
 }

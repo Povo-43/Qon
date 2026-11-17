@@ -4,21 +4,34 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -43,7 +56,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        enableEdgeToEdge()
 
         val learningSetViewModel: LearningSetViewModel = ViewModelProvider(this)[LearningSetViewModel::class.java]
         val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]
@@ -52,7 +65,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AiLearningTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     val navController = rememberNavController()
                     val backStackEntry by navController.currentBackStackEntryAsState()
                     val currentRoute = backStackEntry?.destination?.route
@@ -63,6 +79,7 @@ class MainActivity : ComponentActivity() {
 
                     Scaffold(
                         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                        containerColor = MaterialTheme.colorScheme.background,
                         bottomBar = {
                             if (showBottomBar) {
                                 BottomNavigationBar(
@@ -83,7 +100,15 @@ class MainActivity : ComponentActivity() {
                         NavHost(
                             navController = navController,
                             startDestination = "home",
-                            modifier = Modifier.padding(innerPadding)
+                            modifier = Modifier.padding(innerPadding),
+                            enterTransition = {
+                                fadeIn(tween(220)) + slideInHorizontally(tween(280)) { it / 14 }
+                            },
+                            exitTransition = { fadeOut(tween(160)) },
+                            popEnterTransition = { fadeIn(tween(220)) },
+                            popExitTransition = {
+                                fadeOut(tween(160)) + slideOutHorizontally(tween(240)) { it / 14 }
+                            }
                         ) {
                             composable("home") {
                                 HomeScreen(
@@ -190,45 +215,56 @@ private fun BottomNavigationBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit
 ) {
-    NavigationBar {
-        BottomNavItem(
-            selected = currentRoute == null || currentRoute.startsWith("home"),
-            glyph = "⌂",
-            label = "ホーム",
-            onClick = { onNavigate("home") }
-        )
-        BottomNavItem(
-            selected = currentRoute?.startsWith("stats") == true,
-            glyph = "▤",
-            label = "統計",
-            onClick = { onNavigate("stats") }
-        )
-        BottomNavItem(
-            selected = currentRoute?.startsWith("settings") == true,
-            glyph = "⚙",
-            label = "設定",
-            onClick = { onNavigate("settings") }
-        )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shadowElevation = 18.dp
+    ) {
+        NavigationBar(
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp
+        ) {
+            BottomNavItem(
+                selected = currentRoute == null || currentRoute.startsWith("home"),
+                icon = Icons.Rounded.Home,
+                label = "ホーム",
+                onClick = { onNavigate("home") }
+            )
+            BottomNavItem(
+                selected = currentRoute?.startsWith("stats") == true,
+                icon = Icons.Rounded.BarChart,
+                label = "統計",
+                onClick = { onNavigate("stats") }
+            )
+            BottomNavItem(
+                selected = currentRoute?.startsWith("settings") == true,
+                icon = Icons.Rounded.Settings,
+                label = "設定",
+                onClick = { onNavigate("settings") }
+            )
+        }
     }
 }
 
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.BottomNavItem(
     selected: Boolean,
-    glyph: String,
+    icon: ImageVector,
     label: String,
     onClick: () -> Unit
 ) {
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
-        icon = {
-            Text(
-                text = glyph,
-                fontSize = 20.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-            )
-        },
-        label = { Text(label, fontSize = 11.sp) }
+        icon = { Icon(imageVector = icon, contentDescription = label) },
+        label = { androidx.compose.material3.Text(label) },
+        colors = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     )
 }

@@ -1,28 +1,35 @@
 package com.example.ailearning.presentation.ui.learn
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.*
 import androidx.compose.ui.text.font.FontWeight
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ailearning.domain.model.AnswerHistory
 import com.example.ailearning.domain.model.LearningSession
 import com.example.ailearning.domain.model.Question
 import com.example.ailearning.presentation.ui.components.AppTopBar
-import com.example.ailearning.presentation.ui.components.CustomTopAppBar
+import com.example.ailearning.presentation.ui.components.LinearProgressIndicator
 import com.example.ailearning.presentation.ui.components.LoadingOverlay
 import com.example.ailearning.presentation.ui.components.OptionState
-import com.example.ailearning.presentation.ui.components.ProgressIndicator
 import com.example.ailearning.presentation.ui.components.QuizOptionButton
-import com.example.ailearning.presentation.ui.components.StatCard
 import com.example.ailearning.presentation.viewmodel.LearningViewModel
-import com.example.ailearning.R
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 @Composable
 fun LearnScreen(
@@ -54,111 +61,129 @@ fun LearnScreen(
         questionStartedAt = System.currentTimeMillis()
     }
 
-    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
-    AppTopBar(
-        title = learningSetName,
-        subtitle = modeLabel(mode),
-        onBack = {
-            if (!sessionComplete) {
-                viewModel.reset()
-            }
-            onBack()
-        },
-        actions = {
-            if (questions.isNotEmpty() && !sessionComplete) {
-                TextButton(onClick = { viewModel.generateMoreQuestions(learningSetId) }, enabled = !isGenerating) {
-                    Text("＋問題", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    )
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (questions.isNotEmpty()) {
-                ProgressIndicator(
-                    current = currentQuestionIndex + 1,
-                    total = questions.size
-                )
-                Text(
-                    text = "${currentQuestionIndex + 1} / ${questions.size} 問",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (questions.isEmpty() && !isLoading) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text("問題がありません", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "設定画面でAPIキーを登録すると、AIがこの学習セットの問題を生成できます。",
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = { viewModel.startLearning(learningSetId, mode) },
-                            modifier = Modifier.fillMaxWidth()
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            AppTopBar(
+                title = learningSetName,
+                subtitle = modeLabel(mode),
+                onBack = {
+                    if (!sessionComplete) viewModel.reset()
+                    onBack()
+                },
+                actions = {
+                    if (questions.isNotEmpty() && !sessionComplete) {
+                        IconButton(
+                            onClick = { viewModel.generateMoreQuestions(learningSetId) },
+                            enabled = !isGenerating
                         ) {
-                            Text("問題を生成する")
+                            Icon(Icons.Rounded.Add, contentDescription = "問題を追加")
                         }
                     }
                 }
-            }
-
-            currentQuestion?.let { question ->
-                QuestionCard(
-                    question = question,
-                    showResult = showResult,
-                    lastAnswer = lastAnswer,
-                    onAnswerSelected = { answer, _ ->
-                        viewModel.submitAnswer(
-                            answer,
-                            (System.currentTimeMillis() - questionStartedAt).coerceAtLeast(0)
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (questions.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "問題 ${currentQuestionIndex + 1}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${currentQuestionIndex + 1} / ${questions.size}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = (currentQuestionIndex + 1).toFloat() / questions.size
                         )
                     }
-                )
-            }
+                }
 
-            if (showResult) {
-                val question = currentQuestion
-                val answer = lastAnswer
-                if (question != null && answer != null) {
-                    ResultCard(
-                        question = question,
-                        answer = answer,
-                        onNext = { viewModel.nextQuestion() }
+                if (questions.isEmpty() && !isLoading) {
+                    EmptyQuestionsCard(
+                        onGenerate = { viewModel.startLearning(learningSetId, mode) }
                     )
                 }
-            }
 
-            if (sessionComplete && session != null) {
-                SessionCompleteCard(
-                    session = session!!,
-                    onFinish = {
-                        viewModel.reset()
-                        onBack()
+                currentQuestion?.let { question ->
+                    QuestionCard(
+                        question = question,
+                        showResult = showResult,
+                        lastAnswer = lastAnswer,
+                        onAnswerSelected = { answer, _ ->
+                            viewModel.submitAnswer(
+                                answer,
+                                (System.currentTimeMillis() - questionStartedAt).coerceAtLeast(0)
+                            )
+                        }
+                    )
+                }
+
+                if (showResult) {
+                    val question = currentQuestion
+                    val answer = lastAnswer
+                    if (question != null && answer != null) {
+                        ResultCard(
+                            question = question,
+                            answer = answer,
+                            onNext = { viewModel.nextQuestion() }
+                        )
                     }
-                )
-            }
-        }
+                }
 
-        LoadingOverlay(isVisible = isLoading || isGenerating)
-    }
+                if (sessionComplete && session != null) {
+                    SessionCompleteCard(
+                        session = session!!,
+                        onFinish = {
+                            viewModel.reset()
+                            onBack()
+                        }
+                    )
+                }
+
+                error?.let { msg ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Text(
+                            text = msg,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            LoadingOverlay(isVisible = isLoading || isGenerating)
+        }
     }
 }
 
@@ -171,7 +196,7 @@ private fun modeLabel(mode: String): String = when (mode) {
 }
 
 @Composable
-fun QuestionCard(
+private fun QuestionCard(
     question: Question,
     showResult: Boolean,
     lastAnswer: AnswerHistory?,
@@ -179,23 +204,47 @@ fun QuestionCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = question.category.ifBlank { "問題" },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "難易度 ${question.difficulty}",
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+            }
+
             Text(
                 text = question.questionText,
                 fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+                lineHeight = 27.sp,
+                fontWeight = FontWeight.SemiBold
             )
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 question.getOptions().forEachIndexed { index, option ->
                     val isCorrect = index == question.correctAnswer
                     val state = when {
@@ -208,19 +257,16 @@ fun QuestionCard(
                         else -> OptionState.DEFAULT
                     }
 
-                    val enabled = !showResult
-
                     QuizOptionButton(
                         text = option,
-                        label = ('A' + index).toChar(),
+                        label = ('A' + index),
                         state = state,
                         onClick = {
-                            if (enabled) {
-                                val responseTime = System.currentTimeMillis() - System.currentTimeMillis()
-                                onAnswerSelected(index, responseTime)
+                            if (!showResult) {
+                                onAnswerSelected(index, 0)
                             }
                         },
-                        enabled = enabled,
+                        enabled = !showResult,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -230,143 +276,212 @@ fun QuestionCard(
 }
 
 @Composable
-fun ResultCard(
+private fun ResultCard(
     question: Question,
     answer: AnswerHistory,
     onNext: () -> Unit
 ) {
     val isCorrect = answer.isCorrect
+    val container = if (isCorrect) Color(0xFFE8F7EE) else Color(0xFFFDECEC)
+    val onContainer = if (isCorrect) Color(0xFF166534) else Color(0xFF991B1B)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = container, contentColor = onContainer)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isCorrect) "正解！" else "不正解…",
-                    fontSize = 24.sp,
+                    text = if (isCorrect) "正解！" else "不正解",
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isCorrect) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "あなたの回答: ${('A' + answer.selectedAnswer).toChar()}",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Surface(
+                    color = Color.White.copy(alpha = 0.6f),
+                    contentColor = onContainer,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "${String.format("%.1f", answer.responseTimeMs / 1000.0)}秒",
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
             }
 
             if (!isCorrect) {
                 Text(
-                    text = "正解: ${question.getOptions()[question.correctAnswer]}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = "正解: ${question.getOptions().getOrElse(question.correctAnswer) { "" }}",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
             Text(
-                text = "解説: ${question.explanation}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 22.sp
-            )
-
-            Text(
-                text = "回答時間: ${String.format("%.1f", answer.responseTimeMs / 1000.0)}秒",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.outline
+                text = question.explanation.ifBlank { "解説はありません" },
+                fontSize = 13.sp,
+                lineHeight = 21.sp,
+                color = onContainer.copy(alpha = 0.85f)
             )
 
             Button(
                 onClick = onNext,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = onContainer,
+                    contentColor = Color.White
                 )
             ) {
-                Text("次の問題へ", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Text("次の問題へ", fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-fun SessionCompleteCard(
+private fun SessionCompleteCard(
     session: LearningSession,
     onFinish: () -> Unit
 ) {
-    val accuracy = if (session.totalQuestions > 0) session.correctAnswers.toDouble() / session.totalQuestions else 0.0
+    val accuracy = if (session.totalQuestions > 0) {
+        session.correctAnswers.toDouble() / session.totalQuestions
+    } else {
+        0.0
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(
+                    Brush.linearGradient(
+                        listOf(
+                            Color(0xFF4F46E5),
+                            Color(0xFF7C3AED)
+                        )
+                    )
+                )
+                .padding(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.EmojiEvents,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Text(
+                    text = "セッション完了",
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    SessionStat("問題数", session.totalQuestions.toString(), Modifier.weight(1f))
+                    SessionStat("正解", session.correctAnswers.toString(), Modifier.weight(1f))
+                    SessionStat("正答率", "${(accuracy * 100).toInt()}%", Modifier.weight(1f))
+                }
+                Button(
+                    onClick = onFinish,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF4F46E5)
+                    )
+                ) {
+                    Text("完了", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.16f),
+        contentColor = Color.White,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "学習セッション完了！",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(text = label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.8f))
+        }
+    }
+}
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
+@Composable
+private fun EmptyQuestionsCard(onGenerate: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                StatCard(
-                    title = "問題数",
-                    value = session.totalQuestions.toString(),
-                    subtitle = null,
-                    icon = null,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.width(0.dp).weight(1f)
-                )
-                StatCard(
-                    title = "正解数",
-                    value = session.correctAnswers.toString(),
-                    subtitle = null,
-                    icon = null,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.width(0.dp).weight(1f)
-                )
-                StatCard(
-                    title = "正答率",
-                    value = "${(accuracy * 100).toInt()}%",
-                    subtitle = null,
-                    icon = null,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.width(0.dp).weight(1f)
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
-
+            Text("問題がありません", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "設定でAPIキーを登録すると、AIがこの学習セットの問題を生成できます。",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Button(
-                onClick = onFinish,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                onClick = onGenerate,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text("完了", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("問題を生成する", fontWeight = FontWeight.Bold)
             }
         }
     }

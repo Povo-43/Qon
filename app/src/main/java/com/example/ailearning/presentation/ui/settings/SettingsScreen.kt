@@ -1,15 +1,29 @@
 package com.example.ailearning.presentation.ui.settings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,10 +52,11 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AppTopBar(
-                title = "APIキー設定",
-                subtitle = "AIプロバイダの接続設定",
+                title = "設定",
+                subtitle = "AIプロバイダの接続",
                 onBack = onBack
             )
         },
@@ -51,35 +66,57 @@ fun SettingsScreen(
                     editingKey = null
                     viewModel.clearError()
                     showEditDialog = true
-                }
-            ) {
-                Text("＋ APIキー追加", fontWeight = FontWeight.Bold)
-            }
+                },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = RoundedCornerShape(20.dp),
+                icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                text = { Text("APIキー", fontWeight = FontWeight.Bold) }
+            )
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("🔐 端末内に安全に保存", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "APIキーはAndroid Keystoreで暗号化され、この端末の外には送信されません。",
-                            fontSize = 12.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Shield,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(
+                                "端末内に安全に保存",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                "APIキーはAndroid Keystoreで暗号化され、この端末の外には送信されません。",
+                                fontSize = 11.sp,
+                                lineHeight = 17.sp,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
                     }
                 }
             }
@@ -88,17 +125,38 @@ fun SettingsScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp, horizontal = 20.dp),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("🔑", fontSize = 36.sp)
-                            Text("APIキー未登録", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Box(
+                                modifier = Modifier
+                                    .size(68.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.secondaryContainer
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Key,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                            }
+                            Text("APIキー未登録", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                             Text(
-                                "AI問題生成を使うには、OpenAI・Claude・GeminiのいずれかのAPIキーを追加してください。",
+                                "OpenAI・Claude・GeminiのいずれかのAPIキーを追加すると、AI問題生成が使えます。",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -108,14 +166,25 @@ fun SettingsScreen(
                                     viewModel.clearError()
                                     showEditDialog = true
                                 },
-                                modifier = Modifier.padding(top = 6.dp)
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(14.dp)
                             ) {
-                                Text("APIキーを追加")
+                                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("APIキーを追加", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
             } else {
+                item {
+                    Text(
+                        text = "登録済みのキー",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
                 items(apiKeys, key = { it.id }) { key ->
                     ApiKeyCard(
                         apiKey = key,
@@ -140,7 +209,7 @@ fun SettingsScreen(
                     Text(
                         text = message,
                         color = MaterialTheme.colorScheme.error,
-                        fontSize = 13.sp
+                        fontSize = 12.sp
                     )
                 }
             }
@@ -192,6 +261,7 @@ fun SettingsScreen(
     deletingKey?.let { key ->
         AlertDialog(
             onDismissRequest = { deletingKey = null },
+            shape = RoundedCornerShape(24.dp),
             title = { Text("APIキーを削除") },
             text = { Text("「${key.name}」を削除します。よろしいですか？") },
             confirmButton = {
@@ -222,51 +292,62 @@ private fun ApiKeyCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val brand = providerColor(apiKey.provider)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(brand.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = shortProviderLabel(apiKey.provider).take(1),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = brand
+                    )
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = apiKey.name,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = providerLabel(apiKey.provider),
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${providerLabel(apiKey.provider)}  ·  ${apiKey.model}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Switch(checked = apiKey.isEnabled, onCheckedChange = { onToggleEnabled() })
             }
 
-            Text(
-                text = "モデル: ${apiKey.model}",
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "用途: ${usageLabel(apiKey.usageType)}   優先度: ${apiKey.priority}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Tag(text = usageLabel(apiKey.usageType))
+                Tag(text = "優先度 ${apiKey.priority}")
+                if (!apiKey.isEnabled) {
+                    Tag(text = "無効", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
             if (isTesting) {
                 Row(
@@ -277,37 +358,67 @@ private fun ApiKeyCard(
                     Text("接続テスト中…", fontSize = 12.sp)
                 }
             } else if (testResult != null) {
-                Text(
-                    text = if (testResult) "✓ 接続テスト成功" else "✗ 接続テスト失敗",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (testResult) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    }
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (testResult) Icons.Rounded.CheckCircle else Icons.Rounded.Error,
+                        contentDescription = null,
+                        tint = if (testResult) Color(0xFF16A34A) else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = if (testResult) "接続テスト成功" else "接続テスト失敗",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (testResult) Color(0xFF16A34A) else MaterialTheme.colorScheme.error
+                    )
+                }
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                OutlinedButton(onClick = onTest, enabled = !isTesting, modifier = Modifier.weight(1f)) {
-                    Text("テスト", fontSize = 13.sp)
+                TextButton(onClick = onTest, enabled = !isTesting) {
+                    Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("テスト", fontSize = 12.sp)
                 }
-                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-                    Text("編集", fontSize = 13.sp)
+                TextButton(onClick = onEdit) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("編集", fontSize = 12.sp)
                 }
-                OutlinedButton(
+                TextButton(
                     onClick = onDelete,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("削除", fontSize = 13.sp)
+                    Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("削除", fontSize = 12.sp)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun Tag(text: String, color: Color = MaterialTheme.colorScheme.primary) {
+    Surface(
+        color = color.copy(alpha = 0.1f),
+        contentColor = color,
+        shape = CircleShape
+    ) {
+        Text(
+            text = text,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -341,7 +452,13 @@ private fun ApiKeyEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isNew) "APIキーを追加" else "APIキーを編集") },
+        shape = RoundedCornerShape(28.dp),
+        title = {
+            Text(
+                if (isNew) "APIキーを追加" else "APIキーを編集",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -356,10 +473,11 @@ private fun ApiKeyEditorDialog(
                     label = { Text("表示名") },
                     placeholder = { Text("例: 個人用OpenAI") },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("プロバイダ", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("プロバイダ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -372,7 +490,7 @@ private fun ApiKeyEditorDialog(
                         FilterChip(
                             selected = provider == p,
                             onClick = { provider = p },
-                            label = { Text(shortProviderLabel(p), fontSize = 12.sp) }
+                            label = { Text(shortProviderLabel(p), fontSize = 11.sp) }
                         )
                     }
                 }
@@ -383,6 +501,7 @@ private fun ApiKeyEditorDialog(
                     label = { Text("モデル名") },
                     placeholder = { Text(modelHint(provider)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -393,6 +512,7 @@ private fun ApiKeyEditorDialog(
                     placeholder = { Text(if (isNew) "sk-..." else "空欄なら現在のキーを使用") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -402,30 +522,20 @@ private fun ApiKeyEditorDialog(
                     label = { Text("ベースURL（任意）") },
                     placeholder = { Text("カスタムAPIのURL") },
                     singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = priority,
-                        onValueChange = { input -> priority = input.filter { it.isDigit() }.take(2) },
-                        label = { Text("優先度") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        "数字が大きいほど優先",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(1.4f)
-                    )
-                }
+                OutlinedTextField(
+                    value = priority,
+                    onValueChange = { input -> priority = input.filter { it.isDigit() }.take(2) },
+                    label = { Text("優先度（数字が大きいほど優先）") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                Text("用途", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Text("用途", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -438,7 +548,7 @@ private fun ApiKeyEditorDialog(
                         FilterChip(
                             selected = usageType == value,
                             onClick = { usageType = value },
-                            label = { Text(label, fontSize = 12.sp) }
+                            label = { Text(label, fontSize = 11.sp) }
                         )
                     }
                 }
@@ -461,7 +571,8 @@ private fun ApiKeyEditorDialog(
                         priority.toIntOrNull() ?: 1,
                         usageType
                     )
-                }
+                },
+                shape = RoundedCornerShape(14.dp)
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
@@ -492,10 +603,17 @@ private fun shortProviderLabel(provider: String): String = when (provider) {
 
 private fun providerLabel(provider: String): String = when (provider) {
     ApiKey.PROVIDER_OPENAI -> "OpenAI"
-    ApiKey.PROVIDER_ANTHROPIC -> "Anthropic Claude"
-    ApiKey.PROVIDER_GOOGLE -> "Google Gemini"
-    ApiKey.PROVIDER_CUSTOM -> "カスタムAPI"
+    ApiKey.PROVIDER_ANTHROPIC -> "Anthropic"
+    ApiKey.PROVIDER_GOOGLE -> "Google"
+    ApiKey.PROVIDER_CUSTOM -> "Custom"
     else -> provider
+}
+
+private fun providerColor(provider: String): Color = when (provider) {
+    ApiKey.PROVIDER_OPENAI -> Color(0xFF10A37F)
+    ApiKey.PROVIDER_ANTHROPIC -> Color(0xFFD97757)
+    ApiKey.PROVIDER_GOOGLE -> Color(0xFF4285F4)
+    else -> Color(0xFF6366F1)
 }
 
 private fun usageLabel(usageType: String): String = when (usageType) {

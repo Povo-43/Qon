@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -171,11 +172,56 @@ fun LearnScreen(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer
                         )
                     ) {
-                        Text(
-                            text = msg,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(14.dp)
-                        )
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ErrorOutline,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = msg,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(
+                                    onClick = { viewModel.clearError() },
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                ) {
+                                    Text("閉じる", fontSize = 12.sp)
+                                }
+                                Button(
+                                    onClick = {
+                                        viewModel.clearError()
+                                        if (questions.isEmpty()) {
+                                            viewModel.startLearning(learningSetId, mode)
+                                        } else {
+                                            viewModel.generateMoreQuestions(learningSetId)
+                                        }
+                                    },
+                                    enabled = !isGenerating && !isLoading,
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.onErrorContainer,
+                                        contentColor = MaterialTheme.colorScheme.errorContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("再試行", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
 

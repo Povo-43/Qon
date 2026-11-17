@@ -16,20 +16,21 @@ class UpdateWidgetCacheUseCase @Inject constructor(
         return try {
             val configResult = widgetConfigRepository.getByWidgetId(widgetId)
             if (configResult.isFailure) return Result.failure(configResult.exceptionOrNull() ?: Exception("Widget config not found"))
-            
+
             val config = configResult.getOrNull() ?: return Result.failure(Exception("Widget config not found"))
-            
+
             val questions = questionRepository.getRandomQuestions(config.learningSetId, config.questionCount).getOrElse { emptyList() }
-            
+
             if (questions.isNotEmpty()) {
                 val gson = Gson()
                 val updatedConfig = config.copy(
                     lastUpdatedAt = System.currentTimeMillis(),
-                    cachedQuestionIds = gson.toJson(questions.map { it.id })
+                    cachedQuestionIds = gson.toJson(questions.map { it.id }),
+                    currentIndex = 0
                 )
                 widgetConfigRepository.update(updatedConfig).getOrThrow()
             }
-            
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -45,20 +46,46 @@ class GetWidgetQuestionUseCase @Inject constructor(
         return try {
             val configResult = widgetConfigRepository.getByWidgetId(widgetId)
             if (configResult.isFailure) return Result.failure(configResult.exceptionOrNull() ?: Exception("Widget config not found"))
-            
+
             val config = configResult.getOrNull() ?: return Result.failure(Exception("Widget config not found"))
-            
+
             val cachedIds = config.getCachedQuestionIdList()
             if (cachedIds.isEmpty()) {
                 return questionRepository.getRandomQuestions(config.learningSetId, 1)
                     .map { it.firstOrNull() }
             }
-            
-            val firstId = cachedIds.first()
-            return questionRepository.getById(firstId)
+
+            // currentIndex が範囲外なら先頭に戻す
+            val index = config.currentIndex
+            val safeIndex = if (index in cachedIds.indices) index else 0
+            val questionId = cachedIds.getOrNull(safeIndex) ?: cachedIds.first()
+            return questionRepository.getById(questionId)
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+}
+
+/**
+ * 「次へ」でキャッシュ内の次の問題へ進み、進んだ先の問題を返す。
+ * キャッシュが空・未設定の場合はランダムに1問取得する。
+ */
+class AdvanceWidgetQuestionUseCase @Inject constructor(
+    private val questionRepository: QuestionRepository,
+    private val widgetConfigRepository: WidgetConfigRepository
+) {
+    suspend fun next(widgetId: Int): Question? {
+        val config = widgetConfigRepository.getByWidgetId(widgetId).getOrNull() ?: return null
+
+        val cachedIds = config.getCachedQuestionIdList()
+        val nextQuestion: Question? = if (cachedIds.isEmpty()) {
+            questionRepository.getRandomQuestions(config.learningSetId, 1).getOrElse { emptyList() }.firstOrNull()
+        } else {
+            val nextIndex = ((config.currentIndex + 1).mod(cachedIds.size))
+            widgetConfigRepository.update(config.copy(currentIndex = nextIndex)).getOrThrow()
+            questionRepository.getById(cachedIds[nextIndex]).getOrNull()
+        }
+        return nextQuestion
     }
 }
 

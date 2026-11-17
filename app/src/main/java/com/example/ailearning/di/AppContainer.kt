@@ -98,6 +98,7 @@ object AppContainer {
     // Use cases - Widget
     val updateWidgetCacheUseCase: UpdateWidgetCacheUseCase get() = UpdateWidgetCacheUseCase(questionRepository, widgetConfigRepository)
     val getWidgetQuestionUseCase: GetWidgetQuestionUseCase get() = GetWidgetQuestionUseCase(questionRepository, widgetConfigRepository)
+    val advanceWidgetQuestionUseCase: AdvanceWidgetQuestionUseCase get() = AdvanceWidgetQuestionUseCase(questionRepository, widgetConfigRepository)
     val processWidgetAnswerUseCase: ProcessWidgetAnswerUseCase get() = ProcessWidgetAnswerUseCase(answerHistoryRepository, questionRepository, widgetConfigRepository)
     val updateWidgetConfigUseCase: UpdateWidgetConfigUseCase get() = UpdateWidgetConfigUseCase(widgetConfigRepository)
     val createWidgetConfigUseCase: CreateWidgetConfigUseCase get() = CreateWidgetConfigUseCase(widgetConfigRepository)

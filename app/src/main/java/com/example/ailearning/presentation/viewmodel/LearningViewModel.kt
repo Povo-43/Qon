@@ -107,13 +107,20 @@ class LearningViewModel : ViewModel() {
             
             if (questionsResult.isSuccess) {
                 val qs = questionsResult.getOrNull() ?: emptyList()
+                if (qs.isEmpty()) {
+                    _error.value = when (mode) {
+                        "review" -> "復習する問題がありません。\nまずは連続学習で問題を生成しましょう。"
+                        "random", "unit" -> "保存済みの問題がありません。\n連続学習を実行するか、問題を生成してください。"
+                        else -> "問題を生成できませんでした。もう一度お試しください。"
+                    }
+                }
                 _questions.value = qs
                 _currentQuestionIndex.value = 0
                 _currentQuestion.value = qs.firstOrNull()
             } else {
                 _error.value = questionsResult.exceptionOrNull()?.message ?: "問題の取得に失敗"
             }
-            
+
             _isLoading.value = false
         }
     }
@@ -121,6 +128,7 @@ class LearningViewModel : ViewModel() {
     fun generateMoreQuestions(learningSetId: String, count: Int = 10) {
         viewModelScope.launch {
             _isGenerating.value = true
+            _error.value = null
             val result = generateQuestionsUseCase(learningSetId, count)
             if (result.isSuccess) {
                 val newQuestions = result.getOrNull() ?: emptyList()
@@ -133,6 +141,11 @@ class LearningViewModel : ViewModel() {
             }
             _isGenerating.value = false
         }
+    }
+
+    /** エラー表示を消す（再試行ボタン用）。 */
+    fun clearError() {
+        _error.value = null
     }
     
     fun submitAnswer(selectedAnswer: Int, responseTimeMs: Long, source: String = "app") {

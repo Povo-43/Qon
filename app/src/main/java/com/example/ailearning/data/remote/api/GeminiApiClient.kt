@@ -11,10 +11,7 @@ import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
 import com.example.ailearning.domain.model.GenerateQuestionsResponse
-import com.example.ailearning.domain.model.GeneratedQuestion
 import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
@@ -68,13 +65,13 @@ class GeminiApiClient @Inject constructor(
                 contents = contents,
                 generationConfig = GeminiGenerationConfig(
                     temperature = 0.7,
-                    maxOutputTokens = 4000,
+                    maxOutputTokens = 8192,
                     responseMimeType = "application/json"
                 )
             )
-            
+
             val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
-            
+
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
                     Exception(
@@ -89,19 +86,12 @@ class GeminiApiClient @Inject constructor(
                     )
                 )
             }
-            
+
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
             val candidate = body.candidates.firstOrNull() ?: return@withContext Result.failure(Exception("No candidates"))
             val content = candidate.content.parts.firstOrNull()?.text ?: return@withContext Result.failure(Exception("No content"))
-            
-            val json = JsonParser.parseString(content).asJsonObject
-            val questionsJson = json.getAsJsonArray("questions")
-            
-            val questions = questionsJson.asSequence()
-                .map { it.asJsonObject }
-                .map { parseGeneratedQuestion(it) }
-                .filterNotNull()
-                .toList()
+
+            val questions = QuestionJsonParser.parse(content)
             
             val tokensUsed = body.usageMetadata?.totalTokenCount ?: 0
             
@@ -247,19 +237,20 @@ class GeminiApiClient @Inject constructor(
         val exclude = request.excludeQuestionIds.joinToString(", ")
         return """
             あなたは優秀な問題作成AIです。以下の条件で4択問題を作成してください。
-            
+
             教科: ${request.learningSet.subject}
             科目: ${request.learningSet.category}
             単元: ${request.learningSet.unit}
             学習範囲: ${request.learningSet.scope}
-            
+
             条件:
             - 難易度: ${request.difficultyStart}〜${request.difficultyEnd} (1:易しい〜5:難しい)
-            - 問題数: ${request.count}問
+            - 問題数: ちょうど${request.count}問（必ず${request.count}個の要素を出力）
             ${if (request.categories.isNotEmpty()) "- 対象分野: ${request.categories.joinToString(", ")}\n" else ""}
             ${if (previous.isNotBlank()) "既出問題（重複しないよう注意）:\n$previous\n" else ""}
             ${if (exclude.isNotBlank()) "除外ID: $exclude\n" else ""}
-            
+            - 解説は各問2〜3文程度にまとめる
+
             以下のJSON形式で出力してください:
             {
               "questions": [
@@ -273,6 +264,8 @@ class GeminiApiClient @Inject constructor(
                 }
               ]
             }
+
+            correctAnswer は 0〜3 のインデックス（0 が options の先頭）です。
         """.trimIndent()
     }
     
@@ -314,20 +307,6 @@ class GeminiApiClient @Inject constructor(
         """.trimIndent()
     }
     
-    private fun parseGeneratedQuestion(json: JsonObject): GeneratedQuestion? {
-        return try {
-            GeneratedQuestion(
-                questionText = json.get("questionText").asString,
-                options = json.get("options").asJsonArray.asSequence().map { it.asString }.toList(),
-                correctAnswer = json.get("correctAnswer").asInt,
-                explanation = json.get("explanation").asString,
-                difficulty = json.get("difficulty").asInt.coerceIn(1, 5),
-                category = json.get("category").asString
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
 }
 
 interface GeminiService {

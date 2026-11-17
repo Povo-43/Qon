@@ -33,17 +33,34 @@ class GenerateQuestionsUseCase @Inject constructor(
             )
             
             val response = aiRepository.generateQuestions(request).getOrThrow()
-            
-            val questions = response.questions.map { it.toQuestion(learningSetId, response.modelUsed) }
-            
-            val filteredQuestions = questions.filter { q ->
-                questionRepository.findByContentHash(learningSetId, q.getContentHash()).getOrNull() == null
+
+            val generated = response.questions
+            if (generated.isEmpty()) {
+                return Result.failure(
+                    Exception(
+                        "AIから問題を取得できませんでした（応答の解析に失敗）。\n" +
+                            "モデルを変更するか、もう一度お試しください。"
+                    )
+                )
             }
-            
-            if (filteredQuestions.isNotEmpty()) {
-                questionRepository.insertAll(filteredQuestions).getOrThrow()
+
+            val filteredQuestions = generated
+                .map { it.toQuestion(learningSetId, response.modelUsed) }
+                .filter { q ->
+                    questionRepository.findByContentHash(learningSetId, q.getContentHash()).getOrNull() == null
+                }
+
+            if (filteredQuestions.isEmpty()) {
+                return Result.failure(
+                    Exception(
+                        "生成された${generated.size}問はすべて既存の問題と重複していました。\n" +
+                            "もう一度生成するか、学習範囲を変えてみてください。"
+                    )
+                )
             }
-            
+
+            questionRepository.insertAll(filteredQuestions).getOrThrow()
+
             Result.success(filteredQuestions)
         } catch (e: Exception) {
             Result.failure(e)

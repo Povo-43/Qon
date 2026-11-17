@@ -1,16 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/md_sys_color_surface" />
-    <item android:gravity="center">
-        <vector
-            android:width="48dp"
-            android:height="48dp"
-            android:viewportWidth="24"
-            android:viewportHeight="24"
-            android:tint="@color/md_sys_color_primary">
-            <path
-                android:fillColor="@android:color/white"
-                android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM13,17h-2v-6h2v6zm0,-8h-2V7h2v2z" />
-        </vector>
+    <!-- 角丸カード背景 -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <gradient
+                android:angle="270"
+                android:startColor="#4F46E5"
+                android:endColor="#6D28D9" />
+        </shape>
+    </item>
+    <!-- バッジ -->
+    <item
+        android:width="64dp"
+        android:height="10dp"
+        android:gravity="top|start"
+        android:left="18dp"
+        android:top="20dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5dp" />
+            <solid android:color="#C7D2FE" />
+        </shape>
+    </item>
+    <!-- 問題文 1行目 -->
+    <item
+        android:width="150dp"
+        android:height="12dp"
+        android:gravity="top|start"
+        android:left="18dp"
+        android:top="44dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="6dp" />
+            <solid android:color="#B3FFFFFF" />
+        </shape>
+    </item>
+    <!-- 問題文 2行目 -->
+    <item
+        android:width="110dp"
+        android:height="12dp"
+        android:gravity="top|start"
+        android:left="18dp"
+        android:top="64dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="6dp" />
+            <solid android:color="#80FFFFFF" />
+        </shape>
+    </item>
+    <!-- 選択肢 A -->
+    <item
+        android:height="26dp"
+        android:gravity="top"
+        android:left="18dp"
+        android:right="18dp"
+        android:top="92dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="12dp" />
+            <solid android:color="#26FFFFFF" />
+        </shape>
+    </item>
+    <!-- 選択肢 B -->
+    <item
+        android:height="26dp"
+        android:gravity="top"
+        android:left="18dp"
+        android:right="18dp"
+        android:top="124dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="12dp" />
+            <solid android:color="#26FFFFFF" />
+        </shape>
+    </item>
+    <!-- 選択肢 C -->
+    <item
+        android:height="26dp"
+        android:gravity="top"
+        android:left="18dp"
+        android:right="18dp"
+        android:top="156dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="12dp" />
+            <solid android:color="#26FFFFFF" />
+        </shape>
+    </item>
+    <!-- 選択肢 D -->
+    <item
+        android:height="26dp"
+        android:gravity="top"
+        android:left="18dp"
+        android:right="18dp"
+        android:top="188dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="12dp" />
+            <solid android:color="#26FFFFFF" />
+        </shape>
     </item>
 </layer-list>

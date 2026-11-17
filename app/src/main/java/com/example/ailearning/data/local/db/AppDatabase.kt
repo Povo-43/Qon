@@ -21,7 +21,7 @@ import com.example.ailearning.domain.model.WidgetConfig
         AiAnalysis::class,
         WidgetConfig::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

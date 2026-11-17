@@ -10,9 +10,6 @@ import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
 import com.example.ailearning.domain.model.GenerateQuestionsResponse
-import com.example.ailearning.domain.model.GeneratedQuestion
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -92,7 +89,8 @@ class OpenAiApiClient @Inject constructor(
                 model = model,
                 messages = messages,
                 temperature = 0.7,
-                response_format = OpenAiResponseFormat("json_object")
+                response_format = OpenAiResponseFormat("json_object"),
+                max_tokens = 4096
             )
 
             val response = chat(req)
@@ -116,15 +114,7 @@ class OpenAiApiClient @Inject constructor(
             val content = body.choices.firstOrNull()?.message?.content
                 ?: return@withContext Result.failure(Exception("No content"))
 
-            val json = extractJsonObject(content)
-            val questionsJson = json.getAsJsonArray("questions")
-                ?: return@withContext Result.failure(Exception("JSON に questions がありません"))
-
-            val questions = questionsJson.asSequence()
-                .map { it.asJsonObject }
-                .map { parseGeneratedQuestion(it) }
-                .filterNotNull()
-                .toList()
+            val questions = QuestionJsonParser.parse(content)
 
             Result.success(
                 GenerateQuestionsResponse(
@@ -285,8 +275,9 @@ class OpenAiApiClient @Inject constructor(
             
             条件:
             - 難易度: ${request.difficultyStart}〜${request.difficultyEnd} (1:易しい〜5:難しい)
-            - 問題数: ${request.count}問
+            - 問題数: ちょうど${request.count}問（必ず${request.count}個の要素を出力）
             - 重複回避: 既出問題と類似しないこと
+            - 解説は各問2〜3文程度にまとめる
             - 出力形式: JSONのみ（前後に説明文やコードフェンスを付けない）
             
             JSON形式:
@@ -302,6 +293,8 @@ class OpenAiApiClient @Inject constructor(
                 }
               ]
             }
+            
+            correctAnswer は 0〜3 のインデックス（0 が options の先頭）です。
         """.trimIndent()
     }
 
@@ -317,7 +310,7 @@ class OpenAiApiClient @Inject constructor(
             ${if (exclude.isNotBlank()) "除外ID: $exclude\n" else ""}
             ${if (request.categories.isNotEmpty()) "対象分野: ${request.categories.joinToString(", ")}\n" else ""}
             
-            必ずJSON形式で出力してください。
+            必ず${request.count}問をJSON形式のみで出力してください。
         """.trimIndent()
     }
 
@@ -357,40 +350,6 @@ class OpenAiApiClient @Inject constructor(
               "nextFocusAreas": ["重点分野1", "重点分野2"]
             }
         """.trimIndent()
-    }
-
-    /** ```json フェンスや前後の説明文が付いていても JSON 部分だけを取り出す。 */
-    private fun extractJsonObject(content: String): JsonObject {
-        var text = content.trim()
-        if (text.startsWith("```")) {
-            text = text.removePrefix("```json")
-                .removePrefix("```JSON")
-                .removePrefix("```")
-            val fenceEnd = text.lastIndexOf("```")
-            if (fenceEnd >= 0) text = text.substring(0, fenceEnd)
-            text = text.trim()
-        }
-        val start = text.indexOf('{')
-        val end = text.lastIndexOf('}')
-        if (start >= 0 && end > start) {
-            text = text.substring(start, end + 1)
-        }
-        return JsonParser.parseString(text).asJsonObject
-    }
-
-    private fun parseGeneratedQuestion(json: JsonObject): GeneratedQuestion? {
-        return try {
-            GeneratedQuestion(
-                questionText = json.get("questionText").asString,
-                options = json.get("options").asJsonArray.asSequence().map { it.asString }.toList(),
-                correctAnswer = json.get("correctAnswer").asInt,
-                explanation = json.get("explanation")?.asString.orEmpty(),
-                difficulty = json.get("difficulty")?.asInt?.coerceIn(1, 5) ?: 3,
-                category = json.get("category")?.asString.orEmpty()
-            )
-        } catch (e: Exception) {
-            null
-        }
     }
 }
 

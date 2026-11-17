@@ -9,10 +9,7 @@ import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
 import com.example.ailearning.domain.model.GenerateQuestionsResponse
-import com.example.ailearning.domain.model.GeneratedQuestion
 import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -75,14 +72,14 @@ class AnthropicApiClient @Inject constructor(
             
             val req = AnthropicRequest(
                 model = model,
-                max_tokens = 4000,
+                max_tokens = generationMaxTokens(),
                 messages = messages,
                 system = systemPrompt,
                 temperature = 0.7
             )
-            
+
             val response = service.createMessage(req)
-            
+
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
                     Exception(
@@ -100,15 +97,8 @@ class AnthropicApiClient @Inject constructor(
 
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
             val content = body.content.firstOrNull()?.text ?: return@withContext Result.failure(Exception("No content"))
-            
-            val json = JsonParser.parseString(content).asJsonObject
-            val questionsJson = json.getAsJsonArray("questions")
-            
-            val questions = questionsJson.asSequence()
-                .map { it.asJsonObject }
-                .map { parseGeneratedQuestion(it) }
-                .filterNotNull()
-                .toList()
+
+            val questions = QuestionJsonParser.parse(content)
             
             Result.success(GenerateQuestionsResponse(
                 questions = questions,
@@ -242,18 +232,19 @@ class AnthropicApiClient @Inject constructor(
     private fun buildSystemPrompt(request: GenerateQuestionsRequest): String {
         return """
             あなたは優秀な問題作成AIです。以下の条件で4択問題を作成してください。
-            
+
             教科: ${request.learningSet.subject}
             科目: ${request.learningSet.category}
             単元: ${request.learningSet.unit}
             学習範囲: ${request.learningSet.scope}
-            
+
             条件:
             - 難易度: ${request.difficultyStart}〜${request.difficultyEnd} (1:易しい〜5:難しい)
-            - 問題数: ${request.count}問
+            - 問題数: ちょうど${request.count}問（必ず${request.count}個の要素を出力）
             - 重複回避: 既出問題と類似しないこと
-            - 出力形式: JSONのみ
-            
+            - 解説は各問2〜3文程度にまとめる
+            - 出力形式: JSONのみ（前後に説明文やコードフェンスを付けない）
+
             JSON形式:
             {
               "questions": [
@@ -267,6 +258,8 @@ class AnthropicApiClient @Inject constructor(
                 }
               ]
             }
+
+            correctAnswer は 0〜3 のインデックス（0 が options の先頭）です。
         """.trimIndent()
     }
     
@@ -275,12 +268,12 @@ class AnthropicApiClient @Inject constructor(
         val exclude = request.excludeQuestionIds.joinToString(", ")
         return """
             以下の条件で${request.count}問の4択問題を生成してください。
-            
+
             ${if (previous.isNotBlank()) "既出問題（重複しないよう注意）:\n$previous\n" else ""}
             ${if (exclude.isNotBlank()) "除外ID: $exclude\n" else ""}
             ${if (request.categories.isNotEmpty()) "対象分野: ${request.categories.joinToString(", ")}\n" else ""}
-            
-            必ずJSON形式で出力してください。
+
+            必ず${request.count}問をJSON形式のみで出力してください。
         """.trimIndent()
     }
     
@@ -322,20 +315,9 @@ class AnthropicApiClient @Inject constructor(
         """.trimIndent()
     }
     
-    private fun parseGeneratedQuestion(json: JsonObject): GeneratedQuestion? {
-        return try {
-            GeneratedQuestion(
-                questionText = json.get("questionText").asString,
-                options = json.get("options").asJsonArray.asSequence().map { it.asString }.toList(),
-                correctAnswer = json.get("correctAnswer").asInt,
-                explanation = json.get("explanation").asString,
-                difficulty = json.get("difficulty").asInt.coerceIn(1, 5),
-                category = json.get("category").asString
-            )
-        } catch (e: Exception) {
-            null
-        }
-    }
+    /** モデルの出力トークン上限。Haiku 系は 4096、それ以外は余裕を持って 8192。 */
+    private fun generationMaxTokens(): Int =
+        if (model.lowercase().contains("haiku")) 4096 else 8192
 }
 
 interface AnthropicService {

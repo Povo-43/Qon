@@ -9,6 +9,7 @@ interface ApiKeyRepository {
     suspend fun delete(key: ApiKey): Result<Int>
     suspend fun deleteById(id: String): Result<Int>
     fun getAllEnabled(): Flow<List<ApiKey>>
+    fun getAll(): Flow<List<ApiKey>>
     suspend fun getByUsageType(usageType: String): Result<List<ApiKey>>
     suspend fun getById(id: String): Result<ApiKey?>
     suspend fun incrementUsage(id: String, tokens: Long): Result<Int>

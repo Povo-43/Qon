@@ -17,8 +17,8 @@ class CreateLearningSetUseCase @Inject constructor(
     ): Result<LearningSet> {
         return try {
             val set = LearningSet.create(name, subject, category, unit, scope)
-            val id = repository.insert(set).getOrThrow()
-            Result.success(set.copy(id = id.toString()))
+            repository.insert(set).getOrThrow()
+            Result.success(set)
         } catch (e: Exception) {
             Result.failure(e)
         }

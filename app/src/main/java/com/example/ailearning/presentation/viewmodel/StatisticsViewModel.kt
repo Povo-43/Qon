@@ -61,7 +61,11 @@ class StatisticsViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            
+            _overallStats.value = null
+            _categoryStats.value = emptyList()
+            _difficultyStats.value = emptyList()
+            _trendData.value = emptyList()
+
             val overall = getOverallStatisticsUseCase(learningSetId, period)
             if (overall.isSuccess) _overallStats.value = overall.getOrNull()
             

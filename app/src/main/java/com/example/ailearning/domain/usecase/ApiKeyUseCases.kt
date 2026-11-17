@@ -5,6 +5,7 @@ import com.example.ailearning.data.remote.api.AiClientFactory
 import com.example.ailearning.domain.model.ApiKey
 import com.example.ailearning.domain.repository.ApiKeyRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Named
@@ -23,24 +24,30 @@ class AddApiKeyUseCase @Inject constructor(
         usageType: String
     ): Result<ApiKey> {
         return try {
-            encryptionManager.storeApiKey(name, rawKey)
-            
             val key = ApiKey(
                 name = name,
                 provider = provider,
                 model = model,
-                encryptedKey = name, // キーIDとしてnameを使用（実際の暗号化キーはEncryptedSharedPreferencesに保存）
+                encryptedKey = "",
                 baseUrl = baseUrl,
                 priority = priority,
                 usageType = usageType
             )
-            
-            val id = repository.insert(key).getOrThrow()
-            Result.success(key.copy(id = id.toString()))
+            // 生のAPIキーはAndroid Keystoreで保護された領域にID紐付けで保存する
+            encryptionManager.storeApiKey(key.id, rawKey)
+            val stored = key.copy(encryptedKey = key.id)
+            repository.insert(stored).getOrThrow()
+            Result.success(stored)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+}
+
+class GetAllApiKeysUseCase @Inject constructor(
+    private val repository: ApiKeyRepository
+) {
+    operator fun invoke(): Flow<List<ApiKey>> = repository.getAll()
 }
 
 class GetAvailableApiKeyUseCase @Inject constructor(
@@ -84,9 +91,12 @@ class UpdateApiKeyUseCase @Inject constructor(
     private val repository: ApiKeyRepository,
     private val encryptionManager: EncryptionManager
 ) {
-    operator suspend fun invoke(key: ApiKey): Result<Unit> {
+    operator suspend fun invoke(key: ApiKey, rawKey: String? = null): Result<Unit> {
         return try {
-            repository.update(key).getOrThrow()
+            if (!rawKey.isNullOrBlank()) {
+                encryptionManager.storeApiKey(key.id, rawKey)
+            }
+            repository.update(key.copy(encryptedKey = key.id)).getOrThrow()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

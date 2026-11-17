@@ -26,6 +26,9 @@ interface ApiKeyDao {
     @Query("SELECT * FROM api_keys WHERE isEnabled = 1 ORDER BY priority DESC, createdAt ASC")
     fun getAllEnabled(): Flow<List<ApiKey>>
 
+    @Query("SELECT * FROM api_keys ORDER BY priority DESC, createdAt ASC")
+    fun getAll(): Flow<List<ApiKey>>
+
     @Query("SELECT * FROM api_keys WHERE isEnabled = 1 AND usageType IN (:usageType, 'both') ORDER BY priority DESC")
     suspend fun getByUsageType(usageType: String): List<ApiKey>
 

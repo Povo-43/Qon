@@ -14,6 +14,7 @@ class ApiKeyRepositoryImpl @Inject constructor(
     override suspend fun delete(key: ApiKey) = Result.success(dao.delete(key))
     override suspend fun deleteById(id: String) = Result.success(dao.deleteById(id))
     override fun getAllEnabled(): Flow<List<ApiKey>> = dao.getAllEnabled()
+    override fun getAll(): Flow<List<ApiKey>> = dao.getAll()
     override suspend fun getByUsageType(usageType: String) = Result.success(dao.getByUsageType(usageType))
     override suspend fun getById(id: String) = Result.success(dao.getById(id))
     override suspend fun incrementUsage(id: String, tokens: Long) = Result.success(dao.incrementUsage(id, tokens))

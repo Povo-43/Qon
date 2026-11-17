@@ -20,18 +20,15 @@ class LearningSetViewModel : ViewModel() {
 
     private val _learningSets = MutableStateFlow<List<LearningSet>>(emptyList())
     val learningSets: StateFlow<List<LearningSet>> = _learningSets
-    
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
-    
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
-    
+
     init {
-        loadLearningSets()
-    }
-    
-    fun loadLearningSets() {
+        // RoomのFlowは一度購読すればDB変更を自動反映する
         viewModelScope.launch {
             _isLoading.value = true
             getLearningSetsUseCase().collect { sets ->
@@ -40,21 +37,22 @@ class LearningSetViewModel : ViewModel() {
             }
         }
     }
-    
+
     suspend fun createLearningSet(
         name: String,
         subject: String,
         category: String,
         unit: String,
         scope: String
-    ): Result<Unit> {
+    ): Result<LearningSet> {
+        _error.value = null
         val result = createLearningSetUseCase(name, subject, category, unit, scope)
-        if (result.isSuccess) {
-            loadLearningSets()
+        if (result.isFailure) {
+            _error.value = result.exceptionOrNull()?.message ?: "学習セットの作成に失敗しました"
         }
-        return result.map { Unit }
+        return result
     }
-    
+
     fun updateLearningSet(set: LearningSet) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -66,18 +64,20 @@ class LearningSetViewModel : ViewModel() {
             _isLoading.value = false
         }
     }
-    
-    fun deleteLearningSet(id: String) {
+
+    fun deleteLearningSet(id: String, onDeleted: () -> Unit = {}) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             val result = deleteLearningSetUseCase(id)
             if (result.isSuccess) {
-                loadLearningSets()
+                onDeleted()
             } else {
                 _error.value = result.exceptionOrNull()?.message ?: "削除に失敗しました"
             }
             _isLoading.value = false
         }
     }
+
+    fun findById(id: String): LearningSet? = _learningSets.value.firstOrNull { it.id == id }
 }

@@ -16,8 +16,8 @@ class StartLearningSessionUseCase @Inject constructor(
                 learningSetId = learningSetId,
                 mode = mode
             )
-            val id = sessionRepository.insert(session).getOrThrow()
-            Result.success(session.copy(id = id.toString()))
+            sessionRepository.insert(session).getOrThrow()
+            Result.success(session)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -54,7 +54,7 @@ class RecordAnswerUseCase @Inject constructor(
                 source = source
             )
             
-            val historyId = historyRepository.insert(history).getOrThrow()
+            historyRepository.insert(history).getOrThrow()
             
             val sessionResult = sessionRepository.getById(sessionId)
             if (sessionResult.isSuccess) {
@@ -69,7 +69,7 @@ class RecordAnswerUseCase @Inject constructor(
                 }
             }
             
-            Result.success(history.copy(id = historyId.toString()))
+            Result.success(history)
         } catch (e: Exception) {
             Result.failure(e)
         }

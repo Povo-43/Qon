@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -152,6 +153,50 @@ fun CustomTopAppBar(
                 }
             }
         },
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+/**
+ * アプリ全体で使う共通のトップバー。
+ * アイコン依存を避けるため、戻るボタンは文字グリフで描画する。
+ */
+@Composable
+fun AppTopBar(
+    title: String,
+    subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
+    actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {}
+) {
+    TopAppBar(
+        title = {
+            Column {
+                Text(
+                    text = title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            if (onBack != null) {
+                TextButton(onClick = onBack) {
+                    Text(text = "←", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        actions = actions,
         modifier = Modifier.fillMaxWidth()
     )
 }

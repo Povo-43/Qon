@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.ailearning.domain.model.ApiKey
 import com.example.ailearning.domain.usecase.AddApiKeyUseCase
 import com.example.ailearning.domain.usecase.DeleteApiKeyUseCase
+import com.example.ailearning.domain.usecase.GetAllApiKeysUseCase
 import com.example.ailearning.domain.usecase.TestApiKeyUseCase
 import com.example.ailearning.domain.usecase.UpdateApiKeyUseCase
 import com.example.ailearning.di.AppContainer
@@ -17,26 +18,39 @@ class SettingsViewModel : ViewModel() {
     private val updateApiKeyUseCase = AppContainer.updateApiKeyUseCase
     private val deleteApiKeyUseCase = AppContainer.deleteApiKeyUseCase
     private val testApiKeyUseCase = AppContainer.testApiKeyUseCase
+    private val getAllApiKeysUseCase = AppContainer.getAllApiKeysUseCase
 
     private val _apiKeys = MutableStateFlow<List<ApiKey>>(emptyList())
     val apiKeys: StateFlow<List<ApiKey>> = _apiKeys
-    
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
-    
+
     private val _isTesting = MutableStateFlow<Set<String>>(emptySet())
     val isTesting: StateFlow<Set<String>> = _isTesting
-    
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
-    
+
     private val _testResult = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val testResult: StateFlow<Map<String, Boolean>> = _testResult
-    
-    fun setApiKeys(keys: List<ApiKey>) {
-        _apiKeys.value = keys
+
+    init {
+        loadApiKeys()
     }
-    
+
+    fun loadApiKeys() {
+        viewModelScope.launch {
+            getAllApiKeysUseCase().collect { keys ->
+                _apiKeys.value = keys
+            }
+        }
+    }
+
+    fun clearError() {
+        _error.value = null
+    }
+
     suspend fun addApiKey(
         name: String,
         provider: String,
@@ -46,52 +60,48 @@ class SettingsViewModel : ViewModel() {
         priority: Int,
         usageType: String
     ): Result<Unit> {
+        _error.value = null
         val result = addApiKeyUseCase(name, provider, model, apiKey, baseUrl, priority, usageType)
-        if (result.isSuccess) {
-            // 成功時は外部でリロード
+        if (result.isFailure) {
+            _error.value = result.exceptionOrNull()?.message ?: "APIキーの保存に失敗しました"
         }
         return result.map { Unit }
     }
-    
-    suspend fun updateApiKey(key: ApiKey): Result<Unit> {
-        val result = updateApiKeyUseCase(key)
+
+    suspend fun updateApiKey(key: ApiKey, rawKey: String? = null): Result<Unit> {
+        _error.value = null
+        val result = updateApiKeyUseCase(key, rawKey)
         if (result.isFailure) {
             _error.value = result.exceptionOrNull()?.message ?: "更新に失敗しました"
         }
-        return result.map { Unit }
+        return result
     }
-    
-    fun deleteApiKey(keyId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            val result = deleteApiKeyUseCase(keyId)
-            if (result.isFailure) {
-                _error.value = result.exceptionOrNull()?.message ?: "削除に失敗しました"
-            }
-            _isLoading.value = false
+
+    suspend fun deleteApiKey(keyId: String): Result<Unit> {
+        _isLoading.value = true
+        _error.value = null
+        val result = deleteApiKeyUseCase(keyId)
+        if (result.isFailure) {
+            _error.value = result.exceptionOrNull()?.message ?: "削除に失敗しました"
         }
+        _isLoading.value = false
+        return result
     }
-    
+
     fun testApiKey(keyId: String) {
         viewModelScope.launch {
             _isTesting.value = _isTesting.value + keyId
-            _testResult.value = _testResult.value + (keyId to false)
-            
+            _testResult.value = _testResult.value - keyId
+
             val result = testApiKeyUseCase(keyId)
             val success = result.isSuccess
-            
+
             _isTesting.value = _isTesting.value - keyId
             _testResult.value = _testResult.value + (keyId to success)
         }
     }
-    
-    suspend fun toggleApiKeyEnabled(key: ApiKey) {
-        val updated = key.copy(isEnabled = !key.isEnabled)
-        updateApiKey(updated)
-    }
 
-    suspend fun updatePriority(key: ApiKey, priority: Int) {
-        val updated = key.copy(priority = priority)
-        updateApiKey(updated)
+    suspend fun toggleApiKeyEnabled(key: ApiKey) {
+        updateApiKey(key.copy(isEnabled = !key.isEnabled))
     }
 }

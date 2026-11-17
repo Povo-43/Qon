@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ailearning.domain.model.AnswerHistory
 import com.example.ailearning.domain.model.LearningSession
 import com.example.ailearning.domain.model.Question
+import com.example.ailearning.presentation.ui.components.AppTopBar
 import com.example.ailearning.presentation.ui.components.CustomTopAppBar
 import com.example.ailearning.presentation.ui.components.LoadingOverlay
 import com.example.ailearning.presentation.ui.components.OptionState
@@ -28,6 +29,7 @@ fun LearnScreen(
     viewModel: LearningViewModel,
     learningSetId: String,
     learningSetName: String,
+    mode: String = "continuous",
     onBack: () -> Unit
 ) {
     val questions by viewModel.questions.collectAsState()
@@ -41,10 +43,22 @@ fun LearnScreen(
     val sessionComplete by viewModel.sessionComplete.collectAsState()
     val currentQuestionIndex by viewModel.currentQuestionIndex.collectAsState()
 
-    CustomTopAppBar(
+    var questionStartedAt by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    LaunchedEffect(learningSetId, mode) {
+        viewModel.reset()
+        viewModel.startLearning(learningSetId, mode)
+    }
+
+    LaunchedEffect(currentQuestion?.id) {
+        questionStartedAt = System.currentTimeMillis()
+    }
+
+    Column(modifier = Modifier.fillMaxSize().navigationBarsPadding()) {
+    AppTopBar(
         title = learningSetName,
-        navigationIcon = null,
-        onNavigationClick = {
+        subtitle = modeLabel(mode),
+        onBack = {
             if (!sessionComplete) {
                 viewModel.reset()
             }
@@ -52,8 +66,8 @@ fun LearnScreen(
         },
         actions = {
             if (questions.isNotEmpty() && !sessionComplete) {
-                IconButton(onClick = { viewModel.generateMoreQuestions(learningSetId) }, enabled = !isGenerating) {
-                    Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { viewModel.generateMoreQuestions(learningSetId) }, enabled = !isGenerating) {
+                    Text("＋問題", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -74,6 +88,36 @@ fun LearnScreen(
                     current = currentQuestionIndex + 1,
                     total = questions.size
                 )
+                Text(
+                    text = "${currentQuestionIndex + 1} / ${questions.size} 問",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (questions.isEmpty() && !isLoading) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("問題がありません", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "設定画面でAPIキーを登録すると、AIがこの学習セットの問題を生成できます。",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = { viewModel.startLearning(learningSetId, mode) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("問題を生成する")
+                        }
+                    }
+                }
             }
 
             currentQuestion?.let { question ->
@@ -81,23 +125,28 @@ fun LearnScreen(
                     question = question,
                     showResult = showResult,
                     lastAnswer = lastAnswer,
-                    onAnswerSelected = { answer, time ->
-                        viewModel.submitAnswer(answer, time)
+                    onAnswerSelected = { answer, _ ->
+                        viewModel.submitAnswer(
+                            answer,
+                            (System.currentTimeMillis() - questionStartedAt).coerceAtLeast(0)
+                        )
                     }
                 )
             }
 
             if (showResult) {
-                lastAnswer?.let { answer ->
+                val question = currentQuestion
+                val answer = lastAnswer
+                if (question != null && answer != null) {
                     ResultCard(
-                        question = currentQuestion!!,
+                        question = question,
                         answer = answer,
                         onNext = { viewModel.nextQuestion() }
                     )
                 }
             }
 
-            if (sessionComplete) {
+            if (sessionComplete && session != null) {
                 SessionCompleteCard(
                     session = session!!,
                     onFinish = {
@@ -110,19 +159,15 @@ fun LearnScreen(
 
         LoadingOverlay(isVisible = isLoading || isGenerating)
     }
-
-    error?.let { msg ->
-        val snackbarHostState = remember { SnackbarHostState() }
-        SnackbarHost(hostState = snackbarHostState) { data ->
-            Snackbar(
-                action = { data.dismiss() },
-                dismissAction = { data.dismiss() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(msg)
-            }
-        }
     }
+}
+
+private fun modeLabel(mode: String): String = when (mode) {
+    "continuous" -> "連続学習"
+    "review" -> "復習"
+    "random" -> "ランダム"
+    "unit" -> "単元学習"
+    else -> "学習"
 }
 
 @Composable

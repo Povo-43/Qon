@@ -153,6 +153,14 @@ class LearningViewModel : ViewModel() {
                 val history = result.getOrNull()!!
                 _lastAnswer.value = history
                 _showResult.value = true
+                // 画面上のセッション集計も即時更新する
+                _session.value = _session.value?.let { current ->
+                    current.copy(
+                        totalQuestions = current.totalQuestions + 1,
+                        correctAnswers = current.correctAnswers + if (history.isCorrect) 1 else 0,
+                        totalTimeMs = current.totalTimeMs + responseTimeMs
+                    )
+                }
             } else {
                 _error.value = result.exceptionOrNull()?.message ?: "回答記録に失敗"
             }

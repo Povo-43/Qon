@@ -72,6 +72,12 @@ class OpenAiApiClient @Inject constructor(
 
     private val service = retrofit.create(OpenAiService::class.java)
 
+    private val chatEndpoint: String
+        get() = BaseUrlNormalizer.forOpenAiCompatible(baseUrl) + "chat/completions"
+
+    private val modelsEndpoint: String
+        get() = BaseUrlNormalizer.forOpenAiCompatible(baseUrl) + "models"
+
     override suspend fun generateQuestions(request: GenerateQuestionsRequest): Result<GenerateQuestionsResponse> = withContext(ioDispatcher) {
         try {
             val systemPrompt = buildSystemPrompt(request)
@@ -93,7 +99,16 @@ class OpenAiApiClient @Inject constructor(
 
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("API Error: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "問題生成",
+                            provider = providerId,
+                            model = model,
+                            endpoint = chatEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
 
@@ -119,7 +134,12 @@ class OpenAiApiClient @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("問題生成", providerId, model, chatEndpoint, e),
+                    e
+                )
+            )
         }
     }
 
@@ -143,7 +163,16 @@ class OpenAiApiClient @Inject constructor(
 
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("API Error: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "学習分析",
+                            provider = providerId,
+                            model = model,
+                            endpoint = chatEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
 
@@ -159,7 +188,12 @@ class OpenAiApiClient @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("学習分析", providerId, model, chatEndpoint, e),
+                    e
+                )
+            )
         }
     }
 
@@ -172,11 +206,25 @@ class OpenAiApiClient @Inject constructor(
                 Result.success(Unit)
             } else {
                 Result.failure(
-                    Exception("Test failed: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "接続テスト",
+                            provider = providerId,
+                            model = model,
+                            endpoint = chatEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("接続テスト", providerId, model, chatEndpoint, e),
+                    e
+                )
+            )
         }
     }
 
@@ -185,7 +233,16 @@ class OpenAiApiClient @Inject constructor(
             val response = service.listModels()
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "モデル一覧の取得",
+                            provider = providerId,
+                            model = model,
+                            endpoint = modelsEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
@@ -196,7 +253,12 @@ class OpenAiApiClient @Inject constructor(
                 Result.success(models)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("モデル一覧の取得", providerId, model, modelsEndpoint, e),
+                    e
+                )
+            )
         }
     }
 

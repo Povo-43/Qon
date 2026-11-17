@@ -39,6 +39,10 @@ class SettingsViewModel : ViewModel() {
     private val _testResult = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     val testResult: StateFlow<Map<String, Boolean>> = _testResult
 
+    /** 接続テストの詳細メッセージ（成功時も含む）。 */
+    private val _testMessage = MutableStateFlow<Map<String, String>>(emptyMap())
+    val testMessage: StateFlow<Map<String, String>> = _testMessage
+
     private val _availableModels = MutableStateFlow<List<String>>(emptyList())
     val availableModels: StateFlow<List<String>> = _availableModels
 
@@ -107,12 +111,20 @@ class SettingsViewModel : ViewModel() {
         viewModelScope.launch {
             _isTesting.value = _isTesting.value + keyId
             _testResult.value = _testResult.value - keyId
+            _testMessage.value = _testMessage.value - keyId
 
             val result = testApiKeyUseCase(keyId)
             val success = result.isSuccess
 
             _isTesting.value = _isTesting.value - keyId
             _testResult.value = _testResult.value + (keyId to success)
+            _testMessage.value = _testMessage.value + (
+                keyId to if (success) {
+                    "接続テストに成功しました"
+                } else {
+                    result.exceptionOrNull()?.message ?: "接続テストに失敗しました"
+                }
+            )
         }
     }
 

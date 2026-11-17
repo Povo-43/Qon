@@ -59,6 +59,12 @@ class AnthropicApiClient @Inject constructor(
     
     private val service = retrofit.create(AnthropicService::class.java)
     private val gson = Gson()
+
+    private val messagesEndpoint: String
+        get() = BaseUrlNormalizer.forAnthropic(baseUrl) + "messages"
+
+    private val modelsEndpoint: String
+        get() = BaseUrlNormalizer.forAnthropic(baseUrl) + "models"
     
     override suspend fun generateQuestions(request: GenerateQuestionsRequest): Result<GenerateQuestionsResponse> = withContext(ioDispatcher) {
         try {
@@ -78,9 +84,20 @@ class AnthropicApiClient @Inject constructor(
             val response = service.createMessage(req)
             
             if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("API Error: ${response.code()} - ${response.errorBody()?.string()}"))
+                return@withContext Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "問題生成",
+                            provider = "anthropic",
+                            model = model,
+                            endpoint = messagesEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
             }
-            
+
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
             val content = body.content.firstOrNull()?.text ?: return@withContext Result.failure(Exception("No content"))
             
@@ -99,7 +116,12 @@ class AnthropicApiClient @Inject constructor(
                 tokensUsed = (body.usage?.input_tokens ?: 0) + (body.usage?.output_tokens ?: 0)
             ))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("問題生成", "anthropic", model, messagesEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -120,9 +142,20 @@ class AnthropicApiClient @Inject constructor(
             val response = service.createMessage(req)
             
             if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("API Error: ${response.code()}"))
+                return@withContext Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "学習分析",
+                            provider = "anthropic",
+                            model = model,
+                            endpoint = messagesEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
             }
-            
+
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
             val content = body.content.firstOrNull()?.text ?: return@withContext Result.failure(Exception("No content"))
             
@@ -132,7 +165,12 @@ class AnthropicApiClient @Inject constructor(
                 tokensUsed = (body.usage?.input_tokens ?: 0) + (body.usage?.output_tokens ?: 0)
             ))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("学習分析", "anthropic", model, messagesEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -141,9 +179,29 @@ class AnthropicApiClient @Inject constructor(
             val messages = listOf(AnthropicMessage("user", "Hello"))
             val req = AnthropicRequest(model = model, max_tokens = 5, messages = messages)
             val response = service.createMessage(req)
-            if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Test failed: ${response.code()}"))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "接続テスト",
+                            provider = "anthropic",
+                            model = model,
+                            endpoint = messagesEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("接続テスト", "anthropic", model, messagesEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -152,7 +210,16 @@ class AnthropicApiClient @Inject constructor(
             val response = service.listModels()
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "モデル一覧の取得",
+                            provider = "anthropic",
+                            model = model,
+                            endpoint = modelsEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
@@ -163,7 +230,12 @@ class AnthropicApiClient @Inject constructor(
                 Result.success(models)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("モデル一覧の取得", "anthropic", model, modelsEndpoint, e),
+                    e
+                )
+            )
         }
     }
 

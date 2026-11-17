@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ailearning.domain.model.AiApiStyle
@@ -48,6 +49,7 @@ fun SettingsScreen(
     val apiKeys by viewModel.apiKeys.collectAsState()
     val error by viewModel.error.collectAsState()
     val testResult by viewModel.testResult.collectAsState()
+    val testMessage by viewModel.testMessage.collectAsState()
     val isTesting by viewModel.isTesting.collectAsState()
     val availableModels by viewModel.availableModels.collectAsState()
     val isFetchingModels by viewModel.isFetchingModels.collectAsState()
@@ -202,6 +204,7 @@ fun SettingsScreen(
                         apiKey = key,
                         isTesting = isTesting.contains(key.id),
                         testResult = testResult[key.id],
+                        testMessage = testMessage[key.id],
                         onToggleEnabled = {
                             scope.launch { viewModel.toggleApiKeyEnabled(key) }
                         },
@@ -315,6 +318,7 @@ private fun ApiKeyCard(
     apiKey: ApiKey,
     isTesting: Boolean,
     testResult: Boolean?,
+    testMessage: String?,
     onToggleEnabled: () -> Unit,
     onTest: () -> Unit,
     onEdit: () -> Unit,
@@ -402,6 +406,23 @@ private fun ApiKeyCard(
                         fontWeight = FontWeight.Medium,
                         color = if (testResult) Color(0xFF16A34A) else MaterialTheme.colorScheme.error
                     )
+                }
+                if (!testResult && !testMessage.isNullOrBlank()) {
+                    SelectionContainer {
+                        Text(
+                            text = testMessage,
+                            fontSize = 11.sp,
+                            lineHeight = 16.sp,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .padding(10.dp)
+                        )
+                    }
                 }
             }
 

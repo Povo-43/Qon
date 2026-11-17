@@ -48,6 +48,13 @@ class GeminiApiClient @Inject constructor(
     
     private val service = retrofit.create(GeminiService::class.java)
     private val gson = Gson()
+
+    private val generateEndpoint: String
+        get() = BaseUrlNormalizer.forGemini(baseUrl) +
+            "models/${model.removePrefix("models/")}:generateContent"
+
+    private val modelsEndpoint: String
+        get() = BaseUrlNormalizer.forGemini(baseUrl) + "models"
     
     override suspend fun generateQuestions(request: GenerateQuestionsRequest): Result<GenerateQuestionsResponse> = withContext(ioDispatcher) {
         try {
@@ -69,7 +76,18 @@ class GeminiApiClient @Inject constructor(
             val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
             
             if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("API Error: ${response.code()} - ${response.errorBody()?.string()}"))
+                return@withContext Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "問題生成",
+                            provider = "google",
+                            model = model,
+                            endpoint = generateEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
             }
             
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
@@ -93,7 +111,12 @@ class GeminiApiClient @Inject constructor(
                 tokensUsed = tokensUsed
             ))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("問題生成", "google", model, generateEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -117,7 +140,18 @@ class GeminiApiClient @Inject constructor(
             val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
             
             if (!response.isSuccessful) {
-                return@withContext Result.failure(Exception("API Error: ${response.code()}"))
+                return@withContext Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "学習分析",
+                            provider = "google",
+                            model = model,
+                            endpoint = generateEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
             }
             
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
@@ -132,7 +166,12 @@ class GeminiApiClient @Inject constructor(
                 tokensUsed = tokensUsed
             ))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("学習分析", "google", model, generateEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -141,9 +180,29 @@ class GeminiApiClient @Inject constructor(
             val contents = listOf(GeminiContent("user", listOf(GeminiPart("Hello"))))
             val req = GeminiRequest(contents = contents)
             val response = service.generateContent("models/${model.removePrefix("models/")}:generateContent?key=$apiKey", req)
-            if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception("Test failed: ${response.code()}"))
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "接続テスト",
+                            provider = "google",
+                            model = model,
+                            endpoint = generateEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
+                )
+            }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("接続テスト", "google", model, generateEndpoint, e),
+                    e
+                )
+            )
         }
     }
     
@@ -152,7 +211,16 @@ class GeminiApiClient @Inject constructor(
             val response = service.listModels(apiKey)
             if (!response.isSuccessful) {
                 return@withContext Result.failure(
-                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                    Exception(
+                        ApiErrorDetails.http(
+                            action = "モデル一覧の取得",
+                            provider = "google",
+                            model = model,
+                            endpoint = modelsEndpoint,
+                            code = response.code(),
+                            body = response.errorBody()?.string()
+                        )
+                    )
                 )
             }
             val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
@@ -165,7 +233,12 @@ class GeminiApiClient @Inject constructor(
                 Result.success(models)
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(
+                Exception(
+                    ApiErrorDetails.exception("モデル一覧の取得", "google", model, modelsEndpoint, e),
+                    e
+                )
+            )
         }
     }
 

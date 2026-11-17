@@ -282,8 +282,17 @@ private fun ResultCard(
     onNext: () -> Unit
 ) {
     val isCorrect = answer.isCorrect
-    val container = if (isCorrect) Color(0xFFE8F7EE) else Color(0xFFFDECEC)
-    val onContainer = if (isCorrect) Color(0xFF166534) else Color(0xFF991B1B)
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val container = if (isCorrect) {
+        if (dark) Color(0xFF14301F) else Color(0xFFE8F7EE)
+    } else {
+        if (dark) Color(0xFF3B1515) else Color(0xFFFDECEC)
+    }
+    val onContainer = if (isCorrect) {
+        if (dark) Color(0xFF86EFAC) else Color(0xFF166534)
+    } else {
+        if (dark) Color(0xFFFCA5A5) else Color(0xFF991B1B)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),

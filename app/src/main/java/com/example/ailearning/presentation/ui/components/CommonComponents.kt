@@ -3,6 +3,7 @@ package com.example.ailearning.presentation.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,18 +51,19 @@ fun QuizOptionButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
+    val dark = isSystemInDarkTheme()
     val containerColor = when (state) {
         OptionState.DEFAULT -> MaterialTheme.colorScheme.surface
         OptionState.SELECTED -> MaterialTheme.colorScheme.primaryContainer
-        OptionState.CORRECT -> Color(0xFFE8F7EE)
-        OptionState.INCORRECT -> Color(0xFFFDECEC)
+        OptionState.CORRECT -> if (dark) Color(0xFF14301F) else Color(0xFFE8F7EE)
+        OptionState.INCORRECT -> if (dark) Color(0xFF3B1515) else Color(0xFFFDECEC)
         OptionState.DISABLED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     }
     val contentColor = when (state) {
         OptionState.DEFAULT -> MaterialTheme.colorScheme.onSurface
         OptionState.SELECTED -> MaterialTheme.colorScheme.onPrimaryContainer
-        OptionState.CORRECT -> Color(0xFF166534)
-        OptionState.INCORRECT -> Color(0xFFB91C1C)
+        OptionState.CORRECT -> if (dark) Color(0xFF86EFAC) else Color(0xFF166534)
+        OptionState.INCORRECT -> if (dark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)
         OptionState.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     }
     val accent = when (state) {

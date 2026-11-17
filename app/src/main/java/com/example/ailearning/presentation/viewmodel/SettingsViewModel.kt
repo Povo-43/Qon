@@ -37,7 +37,7 @@ class SettingsViewModel : ViewModel() {
         _apiKeys.value = keys
     }
     
-    fun addApiKey(
+    suspend fun addApiKey(
         name: String,
         provider: String,
         model: String,
@@ -45,30 +45,20 @@ class SettingsViewModel : ViewModel() {
         baseUrl: String?,
         priority: Int,
         usageType: String
-    ) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            val result = addApiKeyUseCase(name, provider, model, apiKey, baseUrl, priority, usageType)
-            if (result.isSuccess) {
-                // 成功時は外部でリロード
-            } else {
-                _error.value = result.exceptionOrNull()?.message ?: "追加に失敗しました"
-            }
-            _isLoading.value = false
+    ): Result<Unit> {
+        val result = addApiKeyUseCase(name, provider, model, apiKey, baseUrl, priority, usageType)
+        if (result.isSuccess) {
+            // 成功時は外部でリロード
         }
+        return result.map { Unit }
     }
     
-    fun updateApiKey(key: ApiKey) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            val result = updateApiKeyUseCase(key)
-            if (result.isFailure) {
-                _error.value = result.exceptionOrNull()?.message ?: "更新に失敗しました"
-            }
-            _isLoading.value = false
+    suspend fun updateApiKey(key: ApiKey): Result<Unit> {
+        val result = updateApiKeyUseCase(key)
+        if (result.isFailure) {
+            _error.value = result.exceptionOrNull()?.message ?: "更新に失敗しました"
         }
+        return result.map { Unit }
     }
     
     fun deleteApiKey(keyId: String) {
@@ -95,12 +85,12 @@ class SettingsViewModel : ViewModel() {
         }
     }
     
-    fun toggleApiKeyEnabled(key: ApiKey) {
+    suspend fun toggleApiKeyEnabled(key: ApiKey) {
         val updated = key.copy(isEnabled = !key.isEnabled)
         updateApiKey(updated)
     }
-    
-    fun updatePriority(key: ApiKey, priority: Int) {
+
+    suspend fun updatePriority(key: ApiKey, priority: Int) {
         val updated = key.copy(priority = priority)
         updateApiKey(updated)
     }

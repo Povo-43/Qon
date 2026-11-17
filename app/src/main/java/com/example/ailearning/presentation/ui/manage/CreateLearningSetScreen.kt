@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
 import com.example.ailearning.presentation.ui.components.CustomTopAppBar
 import com.example.ailearning.presentation.ui.components.LoadingOverlay
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
@@ -27,6 +28,8 @@ fun CreateLearningSetScreen(
 
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -108,8 +111,12 @@ fun CreateLearningSetScreen(
 
             Button(
                 onClick = {
-                    viewModel.createLearningSet(name, subject, category, unit, scope)
-                    onSave()
+                    coroutineScope.launch {
+                        val result = viewModel.createLearningSet(name, subject, category, unit, scope)
+                        if (result.isSuccess) {
+                            onSave()
+                        }
+                    }
                 },
                 enabled = name.isNotBlank() && subject.isNotBlank() && category.isNotBlank() && unit.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()

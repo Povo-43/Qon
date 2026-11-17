@@ -41,24 +41,18 @@ class LearningSetViewModel : ViewModel() {
         }
     }
     
-    fun createLearningSet(
+    suspend fun createLearningSet(
         name: String,
         subject: String,
         category: String,
         unit: String,
         scope: String
-    ) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            val result = createLearningSetUseCase(name, subject, category, unit, scope)
-            if (result.isSuccess) {
-                loadLearningSets()
-            } else {
-                _error.value = result.exceptionOrNull()?.message ?: "作成に失敗しました"
-            }
-            _isLoading.value = false
+    ): Result<Unit> {
+        val result = createLearningSetUseCase(name, subject, category, unit, scope)
+        if (result.isSuccess) {
+            loadLearningSets()
         }
+        return result.map { Unit }
     }
     
     fun updateLearningSet(set: LearningSet) {

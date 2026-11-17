@@ -3,6 +3,8 @@ package com.example.ailearning.data.remote.api
 import com.example.ailearning.data.remote.model.AnthropicRequest
 import com.example.ailearning.data.remote.model.AnthropicResponse
 import com.example.ailearning.data.remote.model.AnthropicMessage
+import com.example.ailearning.data.remote.model.ModelListResponse
+import com.example.ailearning.data.remote.model.sanitizeChatModelIds
 import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
@@ -145,6 +147,26 @@ class AnthropicApiClient @Inject constructor(
         }
     }
     
+    override suspend fun listModels(): Result<List<String>> = withContext(ioDispatcher) {
+        try {
+            val response = service.listModels()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                )
+            }
+            val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
+            val models = sanitizeChatModelIds(body.data.map { it.id })
+            if (models.isEmpty()) {
+                Result.failure(Exception("利用可能なモデルが見つかりませんでした"))
+            } else {
+                Result.success(models)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun buildSystemPrompt(request: GenerateQuestionsRequest): String {
         return """
             あなたは優秀な問題作成AIです。以下の条件で4択問題を作成してください。
@@ -253,4 +275,8 @@ interface AnthropicService {
     suspend fun createMessage(
         @retrofit2.http.Body request: AnthropicRequest
     ): retrofit2.Response<AnthropicResponse>
+
+    @retrofit2.http.GET("models")
+    @retrofit2.http.Headers("anthropic-version: 2023-06-01")
+    suspend fun listModels(): retrofit2.Response<ModelListResponse>
 }

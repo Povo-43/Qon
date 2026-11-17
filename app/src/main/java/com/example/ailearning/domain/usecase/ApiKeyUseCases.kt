@@ -2,6 +2,7 @@ package com.example.ailearning.domain.usecase
 
 import com.example.ailearning.data.local.encryption.EncryptionManager
 import com.example.ailearning.data.remote.api.AiClientFactory
+import com.example.ailearning.domain.model.AiProviderCatalog
 import com.example.ailearning.domain.model.ApiKey
 import com.example.ailearning.domain.repository.ApiKeyRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -84,6 +85,39 @@ class TestApiKeyUseCase @Inject constructor(
             repository.recordError(keyId, System.currentTimeMillis())
             Result.failure(result.exceptionOrNull() ?: Exception("Connection test failed"))
         }
+    }
+}
+
+/**
+ * 入力中のプロバイダ設定からモデル一覧を取得する。
+ * 編集中で API キー入力が空の場合は、保存済みのキーを復号して使用する。
+ */
+class FetchAvailableModelsUseCase @Inject constructor(
+    private val encryptionManager: EncryptionManager,
+    private val clientFactory: AiClientFactory
+) {
+    operator suspend fun invoke(
+        provider: String,
+        rawKey: String,
+        existingKeyId: String?,
+        model: String,
+        baseUrl: String?
+    ): Result<List<String>> {
+        val info = AiProviderCatalog.resolve(provider)
+        val resolvedKey = rawKey.ifBlank {
+            existingKeyId?.let { encryptionManager.getApiKey(it) }.orEmpty()
+        }
+
+        if (resolvedKey.isBlank() && !info.isLocal) {
+            return Result.failure(Exception("先に API キーを入力してください"))
+        }
+        if (info.requiresBaseUrl && baseUrl.isNullOrBlank()) {
+            return Result.failure(Exception("先にベースURLを入力してください"))
+        }
+
+        return clientFactory
+            .createClientForProvider(provider, resolvedKey, model, baseUrl)
+            .listModels()
     }
 }
 

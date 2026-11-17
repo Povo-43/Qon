@@ -49,6 +49,9 @@ fun SettingsScreen(
     val error by viewModel.error.collectAsState()
     val testResult by viewModel.testResult.collectAsState()
     val isTesting by viewModel.isTesting.collectAsState()
+    val availableModels by viewModel.availableModels.collectAsState()
+    val isFetchingModels by viewModel.isFetchingModels.collectAsState()
+    val modelFetchError by viewModel.modelFetchError.collectAsState()
 
     var showEditDialog by remember { mutableStateOf(false) }
     var editingKey by remember { mutableStateOf<ApiKey?>(null) }
@@ -71,6 +74,7 @@ fun SettingsScreen(
                 onClick = {
                     editingKey = null
                     viewModel.clearError()
+                    viewModel.clearModelFetchState()
                     showEditDialog = true
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -171,6 +175,7 @@ fun SettingsScreen(
                                 onClick = {
                                     editingKey = null
                                     viewModel.clearError()
+                                    viewModel.clearModelFetchState()
                                     showEditDialog = true
                                 },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -204,6 +209,7 @@ fun SettingsScreen(
                         onEdit = {
                             editingKey = key
                             viewModel.clearError()
+                            viewModel.clearModelFetchState()
                             showEditDialog = true
                         },
                         onDelete = { deletingKey = key }
@@ -228,11 +234,25 @@ fun SettingsScreen(
             editingKey = editingKey,
             isSaving = isSaving,
             error = error,
+            isFetchingModels = isFetchingModels,
+            availableModels = availableModels,
+            modelFetchError = modelFetchError,
+            onFetchModels = { provider, baseUrl, rawKey ->
+                viewModel.fetchModels(
+                    provider = provider,
+                    baseUrl = baseUrl,
+                    rawKey = rawKey,
+                    existingKeyId = editingKey?.id,
+                    model = editingKey?.model.orEmpty()
+                )
+            },
+            onClearModels = { viewModel.clearModelFetchState() },
             onDismiss = {
                 if (!isSaving) {
                     showEditDialog = false
                     editingKey = null
                     viewModel.clearError()
+                    viewModel.clearModelFetchState()
                 }
             },
             onSave = { name, provider, model, rawKey, baseUrl, priority, usageType ->
@@ -259,6 +279,7 @@ fun SettingsScreen(
                     if (result.isSuccess) {
                         showEditDialog = false
                         editingKey = null
+                        viewModel.clearModelFetchState()
                     }
                 }
             }
@@ -434,6 +455,11 @@ private fun ApiKeyEditorDialog(
     editingKey: ApiKey?,
     isSaving: Boolean,
     error: String?,
+    isFetchingModels: Boolean,
+    availableModels: List<String>,
+    modelFetchError: String?,
+    onFetchModels: (provider: String, baseUrl: String, rawKey: String) -> Unit,
+    onClearModels: () -> Unit,
     onDismiss: () -> Unit,
     onSave: (
         name: String,
@@ -545,6 +571,7 @@ private fun ApiKeyEditorDialog(
                                         model = option.exampleModel
                                     }
                                     provider = option.id
+                                    onClearModels()
                                     providerMenuExpanded = false
                                 }
                             )
@@ -592,6 +619,90 @@ private fun ApiKeyEditorDialog(
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = { onFetchModels(provider, baseUrl, rawKey) },
+                        enabled = !isFetchingModels &&
+                            (!keyRequired || rawKey.isNotBlank()) &&
+                            (!providerInfo.requiresBaseUrl || baseUrl.isNotBlank()),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isFetchingModels) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(15.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text("取得中…", fontSize = 12.sp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text("モデル一覧取得", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+
+                if (availableModels.isNotEmpty()) {
+                    var modelMenuExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = modelMenuExpanded,
+                        onExpandedChange = { modelMenuExpanded = !modelMenuExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = model,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("取得したモデル（${availableModels.size}件）") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelMenuExpanded)
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = modelMenuExpanded,
+                            onDismissRequest = { modelMenuExpanded = false }
+                        ) {
+                            availableModels.forEach { id ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = id,
+                                            fontSize = 13.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    },
+                                    onClick = {
+                                        model = id
+                                        modelMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (modelFetchError != null) {
+                    Text(
+                        text = modelFetchError,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
 
                 OutlinedTextField(
                     value = rawKey,

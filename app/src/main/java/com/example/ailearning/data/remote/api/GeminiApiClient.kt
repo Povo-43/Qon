@@ -5,6 +5,8 @@ import com.example.ailearning.data.remote.model.GeminiResponse
 import com.example.ailearning.data.remote.model.GeminiContent
 import com.example.ailearning.data.remote.model.GeminiPart
 import com.example.ailearning.data.remote.model.GeminiGenerationConfig
+import com.example.ailearning.data.remote.model.GeminiModelListResponse
+import com.example.ailearning.data.remote.model.sanitizeChatModelIds
 import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
@@ -145,6 +147,28 @@ class GeminiApiClient @Inject constructor(
         }
     }
     
+    override suspend fun listModels(): Result<List<String>> = withContext(ioDispatcher) {
+        try {
+            val response = service.listModels(apiKey)
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                )
+            }
+            val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
+            val models = sanitizeChatModelIds(
+                body.models.map { it.name.removePrefix("models/") }
+            )
+            if (models.isEmpty()) {
+                Result.failure(Exception("利用可能なモデルが見つかりませんでした"))
+            } else {
+                Result.success(models)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun buildPrompt(request: GenerateQuestionsRequest): String {
         val previous = request.previousQuestions.joinToString("\n") { "- ${it.questionText} (${it.category}, 難易度${it.difficulty})" }
         val exclude = request.excludeQuestionIds.joinToString(", ")
@@ -239,4 +263,9 @@ interface GeminiService {
         @retrofit2.http.Url url: String,
         @retrofit2.http.Body request: GeminiRequest
     ): retrofit2.Response<GeminiResponse>
+
+    @retrofit2.http.GET("models")
+    suspend fun listModels(
+        @retrofit2.http.Query("key") key: String
+    ): retrofit2.Response<GeminiModelListResponse>
 }

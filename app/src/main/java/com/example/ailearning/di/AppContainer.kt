@@ -87,6 +87,7 @@ object AppContainer {
     val getAllApiKeysUseCase: GetAllApiKeysUseCase get() = GetAllApiKeysUseCase(apiKeyRepository)
     val getAvailableApiKeyUseCase: GetAvailableApiKeyUseCase get() = GetAvailableApiKeyUseCase(apiKeyRepository)
     val testApiKeyUseCase: TestApiKeyUseCase get() = TestApiKeyUseCase(ioDispatcher, apiKeyRepository, aiClientFactory)
+    val fetchAvailableModelsUseCase: FetchAvailableModelsUseCase get() = FetchAvailableModelsUseCase(encryptionManager, aiClientFactory)
     val updateApiKeyUseCase: UpdateApiKeyUseCase get() = UpdateApiKeyUseCase(apiKeyRepository, encryptionManager)
     val deleteApiKeyUseCase: DeleteApiKeyUseCase get() = DeleteApiKeyUseCase(apiKeyRepository, encryptionManager)
 

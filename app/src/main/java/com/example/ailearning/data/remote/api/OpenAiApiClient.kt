@@ -4,6 +4,8 @@ import com.example.ailearning.data.remote.model.OpenAiChatRequest
 import com.example.ailearning.data.remote.model.OpenAiChatResponse
 import com.example.ailearning.data.remote.model.OpenAiMessage
 import com.example.ailearning.data.remote.model.OpenAiResponseFormat
+import com.example.ailearning.data.remote.model.ModelListResponse
+import com.example.ailearning.data.remote.model.sanitizeChatModelIds
 import com.example.ailearning.domain.model.AnalyzeLearningRequest
 import com.example.ailearning.domain.model.AnalyzeLearningResponse
 import com.example.ailearning.domain.model.GenerateQuestionsRequest
@@ -178,6 +180,26 @@ class OpenAiApiClient @Inject constructor(
         }
     }
 
+    override suspend fun listModels(): Result<List<String>> = withContext(ioDispatcher) {
+        try {
+            val response = service.listModels()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("モデル一覧の取得に失敗: ${response.code()} - ${response.errorBody()?.string().orEmpty()}")
+                )
+            }
+            val body = response.body() ?: return@withContext Result.failure(Exception("Empty response"))
+            val models = sanitizeChatModelIds(body.data.map { it.id })
+            if (models.isEmpty()) {
+                Result.failure(Exception("利用可能なモデルが見つかりませんでした"))
+            } else {
+                Result.success(models)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * response_format 非対応プロバイダ（NVIDIA NIM の一部、Perplexity 等）では
      * 自動的に response_format なしで再試行する。
@@ -313,4 +335,7 @@ class OpenAiApiClient @Inject constructor(
 interface OpenAiService {
     @retrofit2.http.POST("chat/completions")
     suspend fun chatCompletion(@retrofit2.http.Body request: OpenAiChatRequest): Response<OpenAiChatResponse>
+
+    @retrofit2.http.GET("models")
+    suspend fun listModels(): Response<ModelListResponse>
 }

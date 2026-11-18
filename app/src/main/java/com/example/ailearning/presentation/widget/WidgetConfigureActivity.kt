@@ -201,8 +201,23 @@ private fun WidgetConfigureScreen(
                                     accentColor = customAccent
                                 )
                                 AppContainer.widgetConfigRepository.insert(newConfig)
-                                // キャッシュを作り直して即座に描画
+                                // キャッシュを作り直し、保存前に直接描画する。
+                                // （構成アクティビティありのウィジェットは追加直後に onUpdate が
+                                //   呼ばれないため、ここで最初の RemoteViews を用意しておく）
                                 AppContainer.updateWidgetCacheUseCase(widgetId)
+                                val config = AppContainer.widgetConfigRepository
+                                    .getByWidgetId(widgetId).getOrNull() ?: newConfig
+                                val question = AppContainer.getWidgetQuestionUseCase(widgetId).getOrNull()
+                                WidgetRenderer.render(
+                                    context,
+                                    android.appwidget.AppWidgetManager.getInstance(context),
+                                    widgetId,
+                                    config,
+                                    WidgetRenderer.WidgetState(
+                                        question = question,
+                                        questionNumber = if (question != null) config.currentIndex + 1 else 0
+                                    )
+                                )
                             }
                             WidgetScheduler.schedulePeriodicRefresh(
                                 context, widgetId, updateIntervalMinutes, replace = true

@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.example.ailearning.R
 import com.example.ailearning.domain.model.Question
@@ -16,6 +17,11 @@ import java.util.Locale
 /**
  * ウィジェットの描画を一元管理するクラス。
  * WidgetConfig の配色設定を RemoteViews に反映する。
+ *
+ * RemoteViews で安全な操作のみを使う方針:
+ * - 背景はプリセット色ごとに事前生成したシェイプdrawable（setImageViewResource）
+ * - カスタム色は root の setBackgroundColor（@RemotableViewMethod 付きの標準操作）
+ * - setColorFilter などの反射呼び出しは環境により失敗するため使わない
  */
 object WidgetRenderer {
 
@@ -41,7 +47,7 @@ object WidgetRenderer {
         val colors = (config ?: WidgetConfig(widgetId = widgetId, learningSetId = "")).resolvedColors()
         val views = RemoteViews(context.packageName, R.layout.widget_quiz)
 
-        applyBackground(context, manager, widgetId, views, colors)
+        applyBackground(views, colors, config)
         applyHeader(views, colors, state, config)
 
         val question = state.question
@@ -73,7 +79,7 @@ object WidgetRenderer {
             config = null,
             state = WidgetState(
                 question = null,
-                emptyMessage = "タップして学習を始めましょう"
+                emptyMessage = "読み込み中…"
             )
         )
     }
@@ -222,22 +228,33 @@ object WidgetRenderer {
     // ------------------------------------------------------------- background
 
     /**
-     * 背景はビットマップを使わず、小さなシェイプdrawable + setColorFilter で着色する。
-     * 大きなBitmapをRemoteViewsに載せると Binder 転送上限を超え
-     * 「ウィジェットを読み込めません」の原因になるため。
+     * 背景。プリセット色は事前生成drawable、カスタム色は setBackgroundColor。
+     * どちらも RemoteViews で最も安全な操作のみを使用する。
      */
-    private fun applyBackground(
-        context: Context,
-        manager: AppWidgetManager,
-        widgetId: Int,
-        views: RemoteViews,
-        colors: WidgetColors
-    ) {
-        // ベース: 背景の下端色。上にグラデーションオーバーレイを重ねて上端色へ
-        views.setImageViewResource(R.id.widget_bg_base, R.drawable.widget_bg_card)
-        views.setInt(R.id.widget_bg_base, "setColorFilter", colors.backgroundGradientEnd)
-        views.setImageViewResource(R.id.widget_bg_overlay, R.drawable.widget_bg_card_gradient)
-        views.setInt(R.id.widget_bg_overlay, "setColorFilter", colors.background)
+    private fun applyBackground(views: RemoteViews, colors: WidgetColors, config: WidgetConfig?) {
+        val customBackground = config?.backgroundColor ?: 0
+        if (customBackground != 0) {
+            // カスタム色: root に直接色を付ける（角丸は Android 12+ ならシステムが適用）
+            views.setInt(R.id.widget_root, "setBackgroundColor", customBackground)
+            views.setViewVisibility(R.id.widget_bg, android.view.View.GONE)
+        } else {
+            views.setInt(R.id.widget_root, "setBackgroundColor", Color.TRANSPARENT)
+            views.setViewVisibility(R.id.widget_bg, android.view.View.VISIBLE)
+            views.setImageViewResource(R.id.widget_bg, backgroundDrawableFor(colors.id))
+        }
+    }
+
+    private fun backgroundDrawableFor(themeId: String): Int = when (themeId) {
+        "midnight" -> R.drawable.widget_bg_midnight
+        "ocean" -> R.drawable.widget_bg_ocean
+        "forest" -> R.drawable.widget_bg_forest
+        "sunset" -> R.drawable.widget_bg_sunset
+        "rose" -> R.drawable.widget_bg_rose
+        "grape" -> R.drawable.widget_bg_grape
+        "graphite" -> R.drawable.widget_bg_graphite
+        "daylight" -> R.drawable.widget_bg_daylight
+        "paper" -> R.drawable.widget_bg_paper
+        else -> R.drawable.widget_bg_indigo
     }
 
     // ----------------------------------------------------------- intents

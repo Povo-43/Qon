@@ -1,25 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="0dp">
 
-    <!-- 角丸カードのベース（単色。RemoteViews から色をフィルターで差し替え） -->
+    <!-- 角丸カード背景（プリセット色ごとに事前生成したdrawableを差し替え） -->
     <ImageView
-        android:id="@+id/widget_bg_base"
+        android:id="@+id/widget_bg"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitXY"
-        android:src="@drawable/widget_bg_card"
-        android:contentDescription="@null" />
-
-    <!-- 上→下のグラデーション演出（白→透明を色フィルターで着色） -->
-    <ImageView
-        android:id="@+id/widget_bg_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitXY"
-        android:src="@drawable/widget_bg_card_gradient"
+        android:src="@drawable/widget_bg_indigo"
         android:contentDescription="@null" />
 
     <LinearLayout
@@ -92,10 +84,11 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp">
 
-                <View
+                <ImageView
                     android:id="@+id/option_bar_a"
                     android:layout_width="3dp"
-                    android:layout_height="16dp" />
+                    android:layout_height="16dp"
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/option_text_a"
@@ -120,10 +113,11 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp">
 
-                <View
+                <ImageView
                     android:id="@+id/option_bar_b"
                     android:layout_width="3dp"
-                    android:layout_height="16dp" />
+                    android:layout_height="16dp"
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/option_text_b"
@@ -148,10 +142,11 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp">
 
-                <View
+                <ImageView
                     android:id="@+id/option_bar_c"
                     android:layout_width="3dp"
-                    android:layout_height="16dp" />
+                    android:layout_height="16dp"
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/option_text_c"
@@ -176,10 +171,11 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp">
 
-                <View
+                <ImageView
                     android:id="@+id/option_bar_d"
                     android:layout_width="3dp"
-                    android:layout_height="16dp" />
+                    android:layout_height="16dp"
+                    android:contentDescription="@null" />
 
                 <TextView
                     android:id="@+id/option_text_d"

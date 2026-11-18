@@ -42,12 +42,13 @@ object WidgetScheduler {
         workManager(context).cancelUniqueWork("widget_periodic_$widgetId")
     }
 
-    fun requestAnswer(context: Context, widgetId: Int, selectedAnswer: Int) {
+    fun requestAnswer(context: Context, widgetId: Int, selectedAnswer: Int, questionId: String?) {
         val request = OneTimeWorkRequestBuilder<WidgetAnswerWorker>()
             .setInputData(
                 Data.Builder()
                     .putInt("widget_id", widgetId)
                     .putInt("selected_answer", selectedAnswer)
+                    .putString("question_id", questionId)
                     .build()
             )
             .build()

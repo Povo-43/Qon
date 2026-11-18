@@ -51,7 +51,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun FocusGateScreen(
     controller: FocusGateController,
-    testMode: Boolean
+    testMode: Boolean,
+    targetLabel: String? = null
 ) {
     val state by controller.state.collectAsState()
     val colors = MaterialTheme.colorScheme
@@ -104,8 +105,10 @@ fun FocusGateScreen(
                     fontWeight = FontWeight.Bold
                 )
             }
+            val targetText = targetLabel?.let { "「$it」を使うには問題に正解してください" }
+                ?: "このアプリを使うには問題に正解してください"
             Text(
-                "このアプリを使うには問題に正解してください",
+                targetText,
                 color = Color.White.copy(alpha = 0.65f),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 6.dp, bottom = 18.dp)
@@ -127,8 +130,10 @@ fun FocusGateScreen(
                 }
             }
 
+            val afterUnlock = targetLabel?.let { "「$targetLabel」を使えます。画面をロックすると、もう一度問題が出ます" }
+                ?: "正解すると次の画面ロックまでアプリが使えます"
             Text(
-                "正解すると次の画面ロックまでアプリが使えます",
+                afterUnlock,
                 color = Color.White.copy(alpha = 0.45f),
                 fontSize = 11.sp,
                 modifier = Modifier.padding(top = 14.dp)
@@ -339,7 +344,7 @@ private fun GateUnlocked(state: FocusGateUiState) {
         }
         Text("解除しました", fontSize = 17.sp, fontWeight = FontWeight.Bold)
         Text(
-            "次の画面ロックまでアプリを利用できます",
+            "このアプリは利用できます。画面をロックすると、もう一度問題が出ます",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

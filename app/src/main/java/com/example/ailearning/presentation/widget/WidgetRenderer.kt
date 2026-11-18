@@ -176,10 +176,13 @@ object WidgetRenderer {
             views.setInt(barIds[index], "setBackgroundColor", barColor)
 
             // 回答用クリック（結果表示中は無効化）
+            // タップに「その時表示されていた問題のID」を持たせる。
+            // 判定を描画時の問題に対して行うことで、タップから処理までの間に
+            // 表示が変わっても誤判定にならない。
             if (!showResult) {
                 views.setOnClickPendingIntent(
                     rowIds[index],
-                    answerPendingIntent(context, widgetId, index)
+                    answerPendingIntent(context, widgetId, index, question.id)
                 )
             }
         }
@@ -259,14 +262,20 @@ object WidgetRenderer {
 
     // ----------------------------------------------------------- intents
 
-    internal fun answerPendingIntent(context: Context, widgetId: Int, answerIndex: Int): PendingIntent =
+    internal fun answerPendingIntent(
+        context: Context,
+        widgetId: Int,
+        answerIndex: Int,
+        questionId: String
+    ): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             widgetId * 4 + answerIndex,
             Intent(ACTION_ANSWER).setClass(context, WidgetAnswerReceiver::class.java)
                 .putExtra("widget_id", widgetId)
                 .putExtra("action", "answer")
-                .putExtra("selected_answer", answerIndex),
+                .putExtra("selected_answer", answerIndex)
+                .putExtra("question_id", questionId),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

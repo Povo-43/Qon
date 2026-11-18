@@ -22,9 +22,12 @@ import com.example.ailearning.presentation.ui.theme.AiLearningTheme
  *
  * - TYPE_ACCESSIBILITY_OVERLAY はアクセシビリティサービスのコンテキストからのみ
  *   追加できるため、必ず FocusAccessibilityService を渡すこと
+ * - ゲートは「どのアプリのロックか」を持つ（targetPackage）。
+ *   正解してもそのアプリだけが解除され、他のアプリはそれぞれ正解が必要（v1.6.3）
  * - 問題はローカルDBから即座に取得（ネットワーク待ちは発生しない）。
  *   用意できない場合はフェイルオープン（自動で閉じる）
- * - 出題済みの問題IDを保持し、同じ問題の再表示を防ぐ
+ * - 出題済みの問題IDを保持し、同じ問題の再表示を防ぐ。
+ *   未出題の問題が無くなったら問題の自動補充を依頼する
  */
 object FocusGateController {
 
@@ -42,7 +45,20 @@ object FocusGateController {
     private var lastDismissAt = 0L
     private var shownAtMs = 0L
 
+    /** このゲートがロックしているアプリ。テスト表示時は null */
+    private var gateTargetPackage: String? = null
+
+    /** ゲートに表示するアプリ名（解決できなければ null） */
+    private var gateTargetLabel: String? = null
+
+    /** フェイルオープンして通したアプリと時刻。短時間の再表示ループを防ぐ */
+    private var lastFailOpenPackage: String? = null
+    private var lastFailOpenAt = 0L
+
     val isShowing: Boolean get() = hostView != null
+
+    /** 現在ゲートが出ている対象アプリ（null はテスト表示） */
+    val targetPackage: String? get() = if (isShowing) gateTargetPackage else null
 
     /**
      * 別アプリが前面に出たことでゲートを閉じてよいか。
@@ -53,16 +69,34 @@ object FocusGateController {
         hostView != null && System.currentTimeMillis() - shownAtMs > FOREGROUND_DISMISS_GRACE_MS
 
     /**
-     * ゲートを表示する。すでに表示中なら何もしない。
+     * ゲートを表示する。すでに同じ対象で表示中なら何もしない。
      *
      * @param serviceContext アクセシビリティサービス自身（TYPE_ACCESSIBILITY_OVERLAY 用）
+     * @param targetPackage ロックするアプリ。テスト表示時は null
+     * @param ignoreCooldown アプリ切り替え時の付け替えなど、直前の dismiss 直後でも即表示する
      */
-    fun show(serviceContext: Context, testMode: Boolean = false): Boolean {
+    fun show(
+        serviceContext: Context,
+        targetPackage: String? = null,
+        testMode: Boolean = false,
+        ignoreCooldown: Boolean = false
+    ): Boolean {
         if (hostView != null) return true
-        if (System.currentTimeMillis() - lastDismissAt < RE_SHOW_COOLDOWN_MS && !testMode) return false
+        if (!testMode && !ignoreCooldown &&
+            System.currentTimeMillis() - lastDismissAt < RE_SHOW_COOLDOWN_MS
+        ) return false
+
+        // フェイルオープンで通した直後のアプリには、しばらくゲートを出さない
+        // （問題を用意できない状態で表示と解除を繰り返すのを防ぐ）
+        if (!testMode && targetPackage != null &&
+            targetPackage == lastFailOpenPackage &&
+            System.currentTimeMillis() - lastFailOpenAt < FAIL_OPEN_RETRY_MS
+        ) return false
 
         this.testMode = testMode
         recordResults = !testMode
+        gateTargetPackage = targetPackage
+        gateTargetLabel = targetPackage?.let { resolveAppLabel(serviceContext, it) }
 
         // 設定を反映（必要正解数・誤答時の正解表示）
         val prefs = AppContainer.settingsPreferences
@@ -72,7 +106,12 @@ object FocusGateController {
         )
 
         val host = FocusGateHostView(serviceContext)
-        host.setGateContent { AiLearningTheme(darkTheme = true) { FocusGateScreen(this@FocusGateController, testMode) } }
+        val label = gateTargetLabel
+        host.setGateContent {
+            AiLearningTheme(darkTheme = true) {
+                FocusGateScreen(this@FocusGateController, testMode, label)
+            }
+        }
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -105,16 +144,24 @@ object FocusGateController {
     }
 
     fun dismiss() {
-        mainHandler.post {
-            val host = hostView ?: return@post
-            hostView = null
-            windowManager?.let { wm ->
-                runCatching { wm.removeView(host) }
-            }
-            windowManager = null
-            runCatching { host.destroyHost() }
-            lastDismissAt = System.currentTimeMillis()
+        // メインスレッドからは即時に外す。アクセシビリティイベントの直後に
+        // 別アプリ用のゲートを付け替える際、post だと間に合わないため。
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            dismissInternal()
+        } else {
+            mainHandler.post { dismissInternal() }
         }
+    }
+
+    private fun dismissInternal() {
+        val host = hostView ?: return
+        hostView = null
+        windowManager?.let { wm ->
+            runCatching { wm.removeView(host) }
+        }
+        windowManager = null
+        runCatching { host.destroyHost() }
+        lastDismissAt = System.currentTimeMillis()
     }
 
     // ------------------------------------------------------------ from UI
@@ -125,12 +172,13 @@ object FocusGateController {
         if (!recordResults) return
         val question = session.currentQuestion() ?: return
         val phase = session.state.value.phase
+        val target = gateTargetPackage
         val elapsed = (System.currentTimeMillis() - questionShownAtMs).coerceAtLeast(0)
         scope.launch(Dispatchers.IO) {
             runCatching {
                 AppContainer.recordFocusAnswerUseCase(question, index, correct, elapsed)
                 when (phase) {
-                    FocusGateUiState.Phase.UNLOCKED -> AppContainer.grantFocusUnlockUseCase()
+                    FocusGateUiState.Phase.UNLOCKED -> target?.let { AppContainer.grantFocusUnlockUseCase(it) }
                     FocusGateUiState.Phase.RESULT_WRONG ->
                         AppContainer.settingsPreferences.incrementFocusWrongCount()
                     else -> Unit
@@ -156,18 +204,35 @@ object FocusGateController {
         questionShownAtMs = System.currentTimeMillis()
         // このゲートで表示済みの問題を必ず除外（過去分の回避はユースケース側で段階的に処理）
         val exclude = session.excludeIds()
-        val question = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
+        val result = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
             withContext(Dispatchers.IO) {
-                runCatching { AppContainer.getFocusGateQuestionUseCase(exclude) }
-                    .getOrElse { null }
+                runCatching { AppContainer.getFocusGateQuestionUseCase(exclude) }.getOrElse { null }
             }
         }
         if (hostView == null) return // 表示中に閉じられた
-        session.onQuestionLoaded(question)
-        question?.let {
+
+        session.onQuestionLoaded(result?.question)
+        val setId = result?.setId
+        if (result?.poolExhausted == true && setId != null) {
+            // 未出題の問題が無くなった → 裏で問題を生成して補充してもらう
+            requestPrefetch(setId)
+        }
+        result?.question?.let {
             runCatching { AppContainer.settingsPreferences.appendFocusRecentQuestionId(it.id) }
         }
     }
+
+    private fun requestPrefetch(setId: String) {
+        runCatching {
+            com.example.ailearning.presentation.work.QuestionPrefetchScheduler
+                .requestPrefetch(AppContainer.appContext, setId, force = true)
+        }
+    }
+
+    private fun resolveAppLabel(context: Context, packageName: String): String? = runCatching {
+        val pm = context.packageManager
+        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+    }.getOrNull()
 
     /** フェーズに応じた自動遷移（正解の次問題送り・解除・フェイルオープン）。 */
     private fun observeSession() {
@@ -187,6 +252,10 @@ object FocusGateController {
                         return@launch
                     }
                     FocusGateUiState.Phase.FAIL_OPEN -> {
+                        if (!testMode && gateTargetPackage != null) {
+                            lastFailOpenPackage = gateTargetPackage
+                            lastFailOpenAt = System.currentTimeMillis()
+                        }
                         delay(FAIL_OPEN_DISMISS_DELAY_MS)
                         dismiss()
                         return@launch
@@ -205,4 +274,6 @@ object FocusGateController {
     private const val RE_SHOW_COOLDOWN_MS = 500L
     /** ゲート表示直後の誤判定防止（ランチャー等の遅延イベント対策） */
     private const val FOREGROUND_DISMISS_GRACE_MS = 800L
+    /** フェイルオープンで通した後、同じアプリにゲートを出さない期間 */
+    private const val FAIL_OPEN_RETRY_MS = 30_000L
 }

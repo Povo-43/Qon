@@ -17,7 +17,8 @@ class WidgetAnswerReceiver : BroadcastReceiver() {
         when (intent.getStringExtra("action")) {
             "answer" -> {
                 val selectedAnswer = intent.getIntExtra("selected_answer", -1)
-                WidgetScheduler.requestAnswer(context, widgetId, selectedAnswer)
+                val questionId = intent.getStringExtra("question_id")
+                WidgetScheduler.requestAnswer(context, widgetId, selectedAnswer, questionId)
             }
             "next" -> WidgetScheduler.requestNext(context, widgetId)
         }

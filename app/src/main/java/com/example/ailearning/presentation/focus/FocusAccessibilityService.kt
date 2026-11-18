@@ -21,8 +21,10 @@ import kotlinx.coroutines.launch
  *
  * - 前面アプリのパッケージ名のみを監視（canRetrieveWindowContent=false のため
  *   画面の内容は一切読み取らない）
- * - 画面ロック解除のたびに解除セッションをリセットする
- * - ロック対象アプリが前面に来たら全画面ゲートを表示する
+ * - 画面ロック解除のたびに解除セッションをリセットする。
+ *   解除はアプリごとに独立しており、正解したアプリだけが使える（v1.6.3）
+ * - ロック対象アプリが前面に来たら全画面ゲートを表示する。
+ *   表示中に別のロック対象アプリへ切り替わったら、そのアプリ用のゲートに付け替える
  *
  * 重要:
  * このサービスのコールバックから例外を投げると、Android はサービスを
@@ -70,14 +72,14 @@ class FocusAccessibilityService : AccessibilityService() {
                     // 時間指定モードではセッションは残り、有効期限のみで判断する
                     Intent.ACTION_SCREEN_OFF -> {
                         if (prefs.focusUnlockDurationMinutes <= 0) {
-                            prefs.setFocusUnlocked(false)
+                            prefs.clearFocusUnlockedPackages()
                         }
                         FocusGateController.dismiss()
                     }
                     // ロック解除 = 「次のロックまで」モードでは毎回ここから「未解除」に戻る
                     Intent.ACTION_USER_PRESENT -> {
                         if (prefs.focusUnlockDurationMinutes <= 0) {
-                            prefs.setFocusUnlocked(false)
+                            prefs.clearFocusUnlockedPackages()
                         }
                         FocusGateController.dismiss()
                     }
@@ -148,31 +150,42 @@ class FocusAccessibilityService : AccessibilityService() {
             return
         }
 
-        // 期限切れの解除セッションが残っていれば掃除する
-        if (prefs.focusUnlocked && !prefs.isFocusUnlockSessionActive()) {
-            prefs.setFocusUnlocked(false)
-        }
+        // 期限切れの解除セッションを掃除する
+        prefs.clearExpiredFocusUnlocks()
 
-        // ゲート表示中に別アプリ（着信・ランチャー・通知など）が前面に出たら閉じる。
-        // ゲートが画面を塞ぎ続けて電話に出られない、といった事故を防ぐため。
-        // IME（キーボード）は無視する。
+        // ゲート表示中の扱い:
+        // - 別アプリ（着信・ホーム・通知など）が前面に出たら閉じる。
+        //   ゲートが画面を塞ぎ続けて電話に出られない事故を防ぐ。IME（キーボード）は無視
+        // - 別のロック対象アプリに切り替わったら、そのアプリ用のゲートに付け替える
         if (FocusGateController.isShowing) {
             val isIme = foregroundPackage == defaultImePackage
-            if (!isIme && foregroundPackage !in blockedPackages) {
-                if (FocusGateController.canDismissByForeground()) {
-                    FocusGateController.dismiss()
-                    return
+            if (!isIme) {
+                val target = FocusGateController.targetPackage
+                when {
+                    foregroundPackage !in blockedPackages -> {
+                        if (FocusGateController.canDismissByForeground()) {
+                            FocusGateController.dismiss()
+                            return
+                        }
+                    }
+                    foregroundPackage != target -> {
+                        FocusGateController.dismiss()
+                        runCatching {
+                            FocusGateController.show(this, foregroundPackage, ignoreCooldown = true)
+                        }.onFailure { FocusDiagnostics.onError(this, "retargetGate", it) }
+                        return
+                    }
                 }
             }
         }
 
-        // 解除セッション中（前回正解してから有効期限内）は何もしない
-        if (prefs.isFocusUnlockSessionActive()) return
+        if (foregroundPackage !in blockedPackages) return
 
-        if (foregroundPackage in blockedPackages) {
-            runCatching { FocusGateController.show(this) }
-                .onFailure { FocusDiagnostics.onError(this, "showGate", it) }
-        }
+        // このアプリはすでに解除されている（正解済み・有効期限内）
+        if (prefs.isPackageUnlocked(foregroundPackage)) return
+
+        runCatching { FocusGateController.show(this, foregroundPackage) }
+            .onFailure { FocusDiagnostics.onError(this, "showGate", it) }
     }
 
     override fun onInterrupt() {

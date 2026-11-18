@@ -67,11 +67,32 @@ class WidgetAnswerWorker(private val context: Context, params: WorkerParameters)
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val widgetId = inputData.getInt("widget_id", 0)
         val selectedAnswer = inputData.getInt("selected_answer", -1)
+        // タップされたボタンには「その時表示されていた問題のID」が入っている。
+        // これを使って判定することで、処理の間に表示対象が変わっても
+        // 押した問題そのもので正誤判定が行われる。
+        val tappedQuestionId = inputData.getString("question_id")
         if (selectedAnswer < 0) return@withContext Result.success()
 
         val manager = AppWidgetManager.getInstance(context)
-        val question = AppContainer.getWidgetQuestionUseCase(widgetId).getOrNull()
+
+        // 表示されていた問題を最優先で使う。取れない場合のみ現在位置にフォールバック
+        val question = tappedQuestionId?.let { id ->
+            AppContainer.questionRepository.getById(id).getOrNull()
+        } ?: AppContainer.getWidgetQuestionUseCase(widgetId).getOrNull()
             ?: return@withContext Result.failure()
+
+        // 結果表示中に残ってしまった古いタップ（RemoteViews の再適用で
+        // クリックが残る環境がある）で同じ問題に二重記録されるのを防ぐ
+        if (!WidgetAnswerState.canRecord(context, widgetId, question.id)) {
+            val config = AppContainer.widgetConfigRepository.getByWidgetId(widgetId).getOrNull()
+            WidgetRenderer.render(
+                context, manager, widgetId,
+                config = config,
+                state = WidgetRenderer.WidgetState(question = question)
+            )
+            return@withContext Result.success()
+        }
+        WidgetAnswerState.markRecorded(context, widgetId, question.id)
 
         val result = AppContainer.processWidgetAnswerUseCase(widgetId, question.id, selectedAnswer, 1000)
         val answerResult = result.getOrNull() ?: return@withContext Result.failure()
@@ -98,6 +119,42 @@ class WidgetAnswerWorker(private val context: Context, params: WorkerParameters)
     }
 }
 
+/**
+ * 同じ問題への二重記録を防ぐための「最後に記録した問題」の記録。
+ * ウィジェットは RemoteViews の再適用で結果表示中も古いクリックが
+ * 残ることがあり、そのタップで誤った不正解が記録されるのを防ぐ。
+ */
+object WidgetAnswerState {
+
+    private const val PREFS_NAME = "widget_answer_state"
+    private const val KEY_PREFIX = "answered_"
+
+    /** windowMs 以内に同じ問題が記録されていなければ true */
+    fun canRecord(context: Context, widgetId: Int, questionId: String, now: Long = System.currentTimeMillis()): Boolean {
+        val raw = prefs(context).getString(key(widgetId), null) ?: return true
+        val (lastId, lastAt) = parse(raw) ?: return true
+        return !(lastId == questionId && now - lastAt < DUPLICATE_WINDOW_MS)
+    }
+
+    fun markRecorded(context: Context, widgetId: Int, questionId: String, now: Long = System.currentTimeMillis()) {
+        prefs(context).edit().putString(key(widgetId), "$questionId|$now").apply()
+    }
+
+    private fun parse(raw: String): Pair<String, Long>? {
+        val index = raw.lastIndexOf('|')
+        if (index <= 0) return null
+        val at = raw.substring(index + 1).toLongOrNull() ?: return null
+        return raw.substring(0, index) to at
+    }
+
+    private fun key(widgetId: Int) = "$KEY_PREFIX$widgetId"
+
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private const val DUPLICATE_WINDOW_MS = 10_000L
+}
+
 /** 「次へ」でキャッシュ内の次の問題へ進む。 */
 class WidgetNextWorker(private val context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
@@ -107,6 +164,11 @@ class WidgetNextWorker(private val context: Context, params: WorkerParameters) :
 
         val config = AppContainer.widgetConfigRepository.getByWidgetId(widgetId).getOrNull()
             ?: return@withContext Result.success()
+
+        // キャッシュが空のままランダム表示になっている場合は、ここで作り直す
+        if (config.getCachedQuestionIdList().isEmpty()) {
+            AppContainer.updateWidgetCacheUseCase(widgetId)
+        }
 
         val question = AppContainer.advanceWidgetQuestionUseCase.next(widgetId)
             ?: return@withContext Result.success()

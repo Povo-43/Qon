@@ -73,23 +73,69 @@ class SettingsPreferences @Inject constructor(
     val focusShowCorrectAnswer: Boolean
         get() = prefs.getBoolean("focus_show_correct_answer", true)
 
-    /** 解除セッション中か */
-    val focusUnlocked: Boolean
-        get() = prefs.getBoolean("focus_unlocked", false)
+    // ---- アプリごとの解除セッション（v1.6.3）----
+    // 「パッケージ名|有効期限」をカンマ区切りで保持する。
+    // 期限 0 は「次のロックまで」、正解はアプリごとに独立して有効。
 
-    /** 解除の有効期限。0 = 次のロックまで */
-    val focusUnlockValidUntil: Long
-        get() = prefs.getLong("focus_unlock_valid_until", 0L)
+    /** 現在解除されているアプリと有効期限の一覧 */
+    fun getFocusUnlockedPackages(): MutableMap<String, Long> =
+        parseUnlockedPackages(prefs.getString("focus_unlocked_packages", "")!!)
 
-    /** 解除セッションが今も有効か（期限付き設定に対応） */
-    fun isFocusUnlockSessionActive(): Boolean {
-        if (!focusUnlocked) return false
-        val until = focusUnlockValidUntil
+    fun setFocusUnlockedPackages(map: Map<String, Long>) {
+        prefs.edit().putString("focus_unlocked_packages", serializeUnlockedPackages(map)).apply()
+    }
+
+    /** 指定したアプリの解除セッションを開始する。validUntil = 0 は次のロックまで */
+    fun setPackageUnlocked(packageName: String, validUntil: Long) {
+        val map = getFocusUnlockedPackages()
+        map[packageName] = validUntil
+        setFocusUnlockedPackages(map)
+        prefs.edit().putLong("focus_unlocked_at", System.currentTimeMillis()).apply()
+    }
+
+    /** そのアプリが今解除されているか（正解済み・有効期限内） */
+    fun isPackageUnlocked(packageName: String): Boolean {
+        val until = getFocusUnlockedPackages()[packageName] ?: return false
         return until <= 0L || System.currentTimeMillis() < until
+    }
+
+    /** すべての解除セッションを消す（「次のロックまで」モードのロック解除時など） */
+    fun clearFocusUnlockedPackages() {
+        prefs.edit().putString("focus_unlocked_packages", "").apply()
+    }
+
+    /** 期限切れの解除セッションを掃除する */
+    fun clearExpiredFocusUnlocks(now: Long = System.currentTimeMillis()) {
+        val map = getFocusUnlockedPackages()
+        val cleaned = map.filterValues { it <= 0L || it > now }
+        if (cleaned.size != map.size) setFocusUnlockedPackages(cleaned)
     }
 
     val focusUnlockedAt: Long
         get() = prefs.getLong("focus_unlocked_at", 0L)
+
+    /** 問題の自動補充: この件数を下回る学習セットを裏で生成する。0 = 自動補充しない */
+    val prefetchTargetCount: Int
+        get() = prefs.getInt("prefetch_target_count", 50)
+
+    fun setPrefetchTargetCount(count: Int) {
+        prefs.edit().putInt("prefetch_target_count", count.coerceIn(0, 500)).apply()
+    }
+
+    private fun parseUnlockedPackages(raw: String): MutableMap<String, Long> {
+        val map = LinkedHashMap<String, Long>()
+        raw.split(",").forEach { entry ->
+            val index = entry.lastIndexOf('|')
+            if (index <= 0) return@forEach
+            val pkg = entry.substring(0, index)
+            val until = entry.substring(index + 1).toLongOrNull() ?: return@forEach
+            if (pkg.isNotBlank()) map[pkg] = until
+        }
+        return map
+    }
+
+    private fun serializeUnlockedPackages(map: Map<String, Long>): String =
+        map.entries.joinToString(",") { "${it.key}|${it.value}" }
 
     /** 累計解除回数 */
     val focusUnlockCount: Int
@@ -134,14 +180,6 @@ class SettingsPreferences @Inject constructor(
 
     fun setFocusShowCorrectAnswer(show: Boolean) {
         prefs.edit().putBoolean("focus_show_correct_answer", show).apply()
-    }
-
-    fun setFocusUnlocked(unlocked: Boolean, validUntil: Long = 0L) {
-        prefs.edit()
-            .putBoolean("focus_unlocked", unlocked)
-            .putLong("focus_unlock_valid_until", validUntil)
-            .putLong("focus_unlocked_at", System.currentTimeMillis())
-            .apply()
     }
 
     fun incrementFocusUnlockCount() {

@@ -15,7 +15,10 @@ import com.example.ailearning.domain.model.FocusBlockedApp
 import com.example.ailearning.domain.model.LearningSet
 import com.example.ailearning.domain.usecase.FocusLockPolicy
 import com.example.ailearning.presentation.focus.FocusAccessibilityService
+import com.example.ailearning.presentation.focus.FocusDiagnostics
 import com.example.ailearning.presentation.focus.FocusGateController
+import com.example.ailearning.presentation.focus.FocusServiceState
+import com.example.ailearning.presentation.focus.FocusServiceStatus
 import com.example.ailearning.presentation.work.QuestionPrefetchScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,8 +64,16 @@ class FocusLockViewModel : ViewModel() {
     private val _installedApps = MutableStateFlow<List<InstalledAppEntry>?>(null)
     val installedApps: StateFlow<List<InstalledAppEntry>?> = _installedApps.asStateFlow()
 
-    private val _isServiceRunning = MutableStateFlow(false)
-    val isServiceRunning: StateFlow<Boolean> = _isServiceRunning.asStateFlow()
+    private val _serviceState = MutableStateFlow(FocusServiceState.DISABLED)
+    val serviceState: StateFlow<FocusServiceState> = _serviceState.asStateFlow()
+
+    /** 診断カードに表示する動作記録 */
+    private val _diagnostics = MutableStateFlow("")
+    val diagnostics: StateFlow<String> = _diagnostics.asStateFlow()
+
+    /** テスト実行できなかったときなどの一時メッセージ */
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice.asStateFlow()
 
     private val _unlockCount = MutableStateFlow(0)
     val unlockCount: StateFlow<Int> = _unlockCount.asStateFlow()
@@ -91,7 +102,16 @@ class FocusLockViewModel : ViewModel() {
         _showCorrectAnswer.value = prefs.focusShowCorrectAnswer
         _unlockCount.value = prefs.focusUnlockCount
         _wrongCount.value = prefs.focusWrongCount
-        _isServiceRunning.value = FocusAccessibilityService.isRunning()
+
+        val context = runCatching { AppContainer.appContext }.getOrNull()
+        if (context != null) {
+            _serviceState.value = FocusServiceStatus.state(context)
+            _diagnostics.value = FocusDiagnostics.summary(context, _serviceState.value)
+        }
+    }
+
+    fun consumeNotice() {
+        _notice.value = null
     }
 
     fun setEnabled(enabled: Boolean) {
@@ -164,10 +184,17 @@ class FocusLockViewModel : ViewModel() {
         }
     }
 
-    /** テスト表示。サービス未起動なら false */
-    fun showTestGate(): Boolean {
-        val service = FocusAccessibilityService.instance ?: return false
-        return FocusGateController.show(service, testMode = true)
+    /** テスト表示。サービス未接続なら理由を notice に入れる */
+    fun showTestGate() {
+        val service = FocusAccessibilityService.instance
+        if (service == null) {
+            _notice.value = "アクセシビリティサービスが接続されていません。端末設定で Qon 集中モードを一度オフ→オンにしてください。"
+            return
+        }
+        val shown = FocusGateController.show(service, testMode = true)
+        if (!shown) {
+            _notice.value = "ゲートを表示できませんでした。少し待ってからもう一度お試しください。"
+        }
     }
 
     private fun queryLaunchableApps(context: Context): List<InstalledAppEntry> {

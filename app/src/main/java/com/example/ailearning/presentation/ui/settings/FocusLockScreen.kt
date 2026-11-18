@@ -1,5 +1,7 @@
 package com.example.ailearning.presentation.ui.settings
 
+import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -21,9 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,6 +66,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.example.ailearning.presentation.ui.components.AppTopBar
+import com.example.ailearning.presentation.focus.FocusOemSettings
+import com.example.ailearning.presentation.focus.FocusServiceState
 import com.example.ailearning.presentation.viewmodel.FocusLockViewModel
 import com.example.ailearning.presentation.viewmodel.InstalledAppEntry
 
@@ -83,7 +89,9 @@ fun FocusLockScreen(
     val showCorrectAnswer by viewModel.showCorrectAnswer.collectAsState()
     val blockedApps by viewModel.blockedApps.collectAsState()
     val installedApps by viewModel.installedApps.collectAsState()
-    val isServiceRunning by viewModel.isServiceRunning.collectAsState()
+    val serviceState by viewModel.serviceState.collectAsState()
+    val diagnostics by viewModel.diagnostics.collectAsState()
+    val notice by viewModel.notice.collectAsState()
     val unlockCount by viewModel.unlockCount.collectAsState()
     val wrongCount by viewModel.wrongCount.collectAsState()
 
@@ -147,48 +155,114 @@ fun FocusLockScreen(
                 }
             }
 
-            if (focusEnabled && !isServiceRunning) {
+            if (focusEnabled && serviceState != FocusServiceState.CONNECTED) {
                 item {
-                    // ------------------------------------------------ 権限ガイド
+                    // ------------------------------------------------ 権限 / 接続ガイド
+                    val needsEnable = serviceState == FocusServiceState.DISABLED
+                    val container = if (needsEnable) MaterialTheme.colorScheme.errorContainer
+                    else MaterialTheme.colorScheme.tertiaryContainer
+                    val onContainer = if (needsEnable) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.onTertiaryContainer
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(22.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                        colors = CardDefaults.cardColors(containerColor = container)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                "アクセシビリティの許可が必要です",
+                                if (needsEnable) "アクセシビリティの許可が必要です"
+                                else "許可は有効ですが、接続されていません",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = onContainer
                             )
                             Text(
-                                "Qon が前面アプリを検知するために「画面の内容の取得」権限を使います。\n画面の中身は読み取らず、アプリのパッケージ名のみを使用します。",
+                                if (needsEnable) {
+                                    "端末設定 → ユーザー補助（アクセシビリティ）で「Qon 集中モード」をオンにしてください。\n画面の内容は読み取らず、前面アプリのパッケージ名のみを使用します。"
+                                } else {
+                                    "端末設定ではオンになっていますが、Android 側でサービスが停止しています。\n設定画面で「Qon 集中モード」を一度オフにしてから、もう一度オンにしてください。\nAndroid 13 以降では「制限付き設定の許可」が必要な場合があります（下の手順3）。"
+                                },
                                 fontSize = 11.5.sp,
                                 lineHeight = 17.sp,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                color = onContainer.copy(alpha = 0.88f)
                             )
                             Button(
                                 onClick = {
-                                    runCatching {
-                                        context.startActivity(
-                                            Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        )
-                                    }
+                                    FocusOemSettings.openAccessibilitySettings(context)
                                 },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error,
-                                    contentColor = MaterialTheme.colorScheme.onError
+                                    containerColor = if (needsEnable) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.tertiary,
+                                    contentColor = if (needsEnable) MaterialTheme.colorScheme.onError
+                                    else MaterialTheme.colorScheme.onTertiary
                                 )
                             ) {
                                 Icon(Icons.Rounded.Accessibility, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.size(6.dp))
                                 Text("アクセシビリティ設定を開く", fontWeight = FontWeight.Bold)
+                            }
+                            if (!needsEnable) {
+                                Text(
+                                    "※ Xiaomi など一部の端末では、サービスが強制停止されてこの状態のままになります。下の「MIUI / HyperOS の方」も確認してください。",
+                                    fontSize = 10.5.sp,
+                                    lineHeight = 15.sp,
+                                    color = onContainer.copy(alpha = 0.75f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (focusEnabled) {
+                item {
+                    // ------------------------------------------------ MIUI / HyperOS ガイド
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(22.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Xiaomi（MIUI / HyperOS）をお使いの方",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                "Xiaomi はバックグラウンドのアプリを強制停止するため、集中モードが切れることがあります。次の設定を確認してください。",
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "1. アプリ情報 → 自動起動 をオン\n"
+                                    + "2. アプリ情報 → バッテリー → 制限なし\n"
+                                    + "3. アプリ情報 → 右上「⋮」→「制限付き設定を許可」（Android 13 以降）\n"
+                                    + "4. 最近使用したアプリで Qon をロック\n"
+                                    + "5. 開発者向けオプション → 「MIUI 最適化」をオフ",
+                                fontSize = 11.sp,
+                                lineHeight = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { FocusOemSettings.openAutostart(context) }) {
+                                    Text("自動起動の設定", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                TextButton(onClick = { FocusOemSettings.openAppDetails(context) }) {
+                                    Text("アプリ情報", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                                TextButton(onClick = { FocusOemSettings.openBatterySettings(context) }) {
+                                    Text("バッテリー", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                     }
@@ -446,29 +520,111 @@ fun FocusLockScreen(
                     shape = RoundedCornerShape(22.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("ゲートをテスト", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                "実際のロック画面をシミュレーションします（記録されません）",
-                                fontSize = 11.5.sp,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                lineHeight = 16.sp
-                            )
-                        }
-                        Button(
-                            onClick = { viewModel.showTestGate() },
-                            enabled = isServiceRunning,
-                            shape = RoundedCornerShape(14.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(Icons.Rounded.PlayCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.size(6.dp))
-                            Text("実行", fontWeight = FontWeight.Bold)
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("ゲートをテスト", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(
+                                    "実際のロック画面をシミュレーションします（記録されません）",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            Button(
+                                onClick = { viewModel.showTestGate() },
+                                enabled = serviceState == FocusServiceState.CONNECTED,
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Rounded.PlayCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.size(6.dp))
+                                Text("実行", fontWeight = FontWeight.Bold)
+                            }
                         }
+                        Text(
+                            "サービス: ${serviceState.label}",
+                            fontSize = 10.5.sp,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                        )
+                        notice?.let { message ->
+                            TextButton(onClick = { viewModel.consumeNotice() }) {
+                                Text(
+                                    message,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.error,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
+                // ------------------------------------------------ 診断
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("動作診断", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Row {
+                                TextButton(onClick = { viewModel.refresh() }) {
+                                    Icon(
+                                        Icons.Rounded.Refresh,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(Modifier.size(4.dp))
+                                    Text("再確認", fontSize = 12.sp)
+                                }
+                                TextButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                            as? android.content.ClipboardManager
+                                        clipboard?.setPrimaryClip(
+                                            ClipData.newPlainText("Qon 集中モード診断", diagnostics)
+                                        )
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.ContentCopy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp)
+                                    )
+                                    Spacer(Modifier.size(4.dp))
+                                    Text("コピー", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                        Text(
+                            diagnostics.ifBlank { "まだ記録がありません" },
+                            fontSize = 10.sp,
+                            lineHeight = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            "うまく動かないときは、この内容をコピーして開発者に送ってください（個人情報は含まれません）。",
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
                     }
                 }
             }

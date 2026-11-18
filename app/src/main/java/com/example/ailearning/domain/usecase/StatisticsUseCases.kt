@@ -4,11 +4,14 @@ import com.example.ailearning.domain.model.AnswerHistory
 import com.example.ailearning.domain.model.CategoryStatistics
 import com.example.ailearning.domain.model.DailyStatistics
 import com.example.ailearning.domain.model.DifficultyStatistics
+import com.example.ailearning.domain.model.GlobalStatistics
 import com.example.ailearning.domain.model.LearningSession
 import com.example.ailearning.domain.model.OverallStatistics
 import com.example.ailearning.domain.model.StatisticsPeriod
+import com.example.ailearning.data.local.prefs.SettingsPreferences
 import com.example.ailearning.domain.repository.AnswerHistoryRepository
 import com.example.ailearning.domain.repository.LearningSessionRepository
+import com.example.ailearning.domain.repository.SourceCount
 import javax.inject.Inject
 
 class GetOverallStatisticsUseCase @Inject constructor(
@@ -181,3 +184,87 @@ class GetLearningTrendUseCase @Inject constructor(
         }
     }
 }
+
+/**
+ * 全セット横断の統括統計を取得する（v1.6.6）。
+ * 集中モード（focus_lock）の解除回数・誤答回数も含める。
+ */
+class GetGlobalStatisticsUseCase @Inject constructor(
+    private val historyRepository: AnswerHistoryRepository,
+    private val settingsPreferences: com.example.ailearning.data.local.prefs.SettingsPreferences
+) {
+    operator suspend fun invoke(): Result<GlobalStatistics> {
+        return try {
+            val totalQuestions = historyRepository.countAll().getOrElse { 0 }
+            val accuracy = historyRepository.getAccuracyAll().getOrElse { 0.0 }
+            val avgResponseTime = historyRepository.getAvgResponseTimeCorrectAll().getOrElse { 0.0 }
+            val totalTime = historyRepository.getTotalResponseTimeAll().getOrElse { 0L }
+
+            val appStats = historyRepository.getCountBySource(SOURCE_APP).getOrElse { SourceCount(0, 0) }
+            val widgetStats = historyRepository.getCountBySource(SOURCE_WIDGET).getOrElse { SourceCount(0, 0) }
+            val focusStats = historyRepository.getCountBySource(SOURCE_FOCUS_LOCK).getOrElse { SourceCount(0, 0) }
+
+            Result.success(GlobalStatistics(
+                totalQuestions = totalQuestions,
+                totalCorrect = (totalQuestions * accuracy).toInt(),
+                overallAccuracy = accuracy,
+                totalStudyTimeMs = totalTime,
+                avgResponseTimeMs = avgResponseTime,
+                appTotal = appStats.total,
+                appCorrect = appStats.correct,
+                widgetTotal = widgetStats.total,
+                widgetCorrect = widgetStats.correct,
+                focusLockTotal = focusStats.total,
+                focusLockCorrect = focusStats.correct,
+                focusUnlockCount = settingsPreferences.focusUnlockCount,
+                focusWrongCount = settingsPreferences.focusWrongCount
+            ))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
+/**
+ * 統計を CSV 形式でエクスポートする（v1.6.6）。
+ * キャッシュディレクトリに保存し、ファイルの Uri を返す。
+ */
+class ExportStatisticsUseCase @Inject constructor(
+    private val context: android.content.Context,
+    private val historyRepository: AnswerHistoryRepository
+) {
+    operator suspend fun invoke(): Result<android.net.Uri> {
+        return try {
+            val startTime = 0L
+            val endTime = System.currentTimeMillis()
+            val histories = historyRepository.getAllByDateRange(startTime, endTime).getOrElse { emptyList() }
+
+            val csv = buildString {
+                appendLine("id,questionId,learningSetId,selectedAnswer,isCorrect,responseTimeMs,answeredAt,sessionId,source")
+                for (h in histories) {
+                    append("${h.id},")
+                    append("${h.questionId},")
+                    append("${h.learningSetId},")
+                    append("${h.selectedAnswer},")
+                    append("${h.isCorrect},")
+                    append("${h.responseTimeMs},")
+                    append("${h.answeredAt},")
+                    append("${h.sessionId},")
+                    appendLine("${h.source}")
+                }
+            }
+
+            val file = java.io.File(context.cacheDir, "qon_statistics_${System.currentTimeMillis()}.csv")
+            file.writeText(csv)
+
+            val uri = android.net.Uri.fromFile(file)
+            Result.success(uri)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
+private const val SOURCE_APP = "app"
+private const val SOURCE_WIDGET = "widget"
+private const val SOURCE_FOCUS_LOCK = "focus_lock"

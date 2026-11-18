@@ -7,6 +7,29 @@ import androidx.room.Query
 import com.example.ailearning.domain.model.AnswerHistory
 import kotlinx.coroutines.flow.Flow
 
+/** ソース別統計の Row */
+data class SourceStat(
+    val source: String,
+    val total: Int,
+    val correct: Int,
+    val avgTime: Double
+)
+
+/** ソース別カウント Row */
+data class SourceCount(
+    val total: Int,
+    val correct: Int
+)
+
+/** 日別統計 Row */
+data class DailyStatRow(
+    val date: String,
+    val total: Int,
+    val correct: Int,
+    val avgTime: Double,
+    val studyTime: Long
+)
+
 @Dao
 interface AnswerHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -29,6 +52,53 @@ interface AnswerHistoryDao {
 
     @Query("SELECT COUNT(*) FROM answer_histories WHERE learningSetId = :learningSetId")
     suspend fun countByLearningSet(learningSetId: String): Int
+
+    // ---- 全セット横断統計（v1.6.6）----
+
+    @Query("SELECT COUNT(*) FROM answer_histories")
+    suspend fun countAll(): Int
+
+    @Query("SELECT SUM(CASE WHEN isCorrect THEN 1 ELSE 0 END) * 1.0 / COUNT(*) FROM answer_histories")
+    suspend fun getAccuracyAll(): Double
+
+    @Query("SELECT AVG(responseTimeMs) FROM answer_histories WHERE isCorrect = 1")
+    suspend fun getAvgResponseTimeCorrectAll(): Double
+
+    @Query("SELECT SUM(responseTimeMs) FROM answer_histories")
+    suspend fun getTotalResponseTimeAll(): Long
+
+    @Query("""
+        SELECT source as source,
+               COUNT(*) as total,
+               SUM(CASE WHEN isCorrect THEN 1 ELSE 0 END) as correct,
+               AVG(responseTimeMs) as avgTime
+        FROM answer_histories
+        GROUP BY source
+    """)
+    suspend fun getStatsBySource(): List<SourceStat>
+
+    @Query("""
+        SELECT COUNT(*) as total,
+               SUM(CASE WHEN isCorrect THEN 1 ELSE 0 END) as correct
+        FROM answer_histories
+        WHERE source = :source
+    """)
+    suspend fun getCountBySource(source: String): SourceCount
+
+    @Query("SELECT * FROM answer_histories WHERE answeredAt >= :startTime AND answeredAt <= :endTime ORDER BY answeredAt DESC")
+    suspend fun getAllByDateRange(startTime: Long, endTime: Long): List<AnswerHistory>
+
+    @Query("""
+        SELECT DATE(answeredAt / 1000, 'unixepoch') as date,
+               COUNT(*) as total,
+               SUM(CASE WHEN isCorrect THEN 1 ELSE 0 END) as correct,
+               AVG(responseTimeMs) as avgTime,
+               SUM(responseTimeMs) as studyTime
+        FROM answer_histories
+        GROUP BY DATE(answeredAt / 1000, 'unixepoch')
+        ORDER BY date ASC
+    """)
+    suspend fun getDailyStatsAll(): List<DailyStatRow>
 
     @Query("SELECT SUM(CASE WHEN isCorrect THEN 1 ELSE 0 END) * 1.0 / COUNT(*) FROM answer_histories WHERE learningSetId = :learningSetId")
     suspend fun getAccuracyByLearningSet(learningSetId: String): Double

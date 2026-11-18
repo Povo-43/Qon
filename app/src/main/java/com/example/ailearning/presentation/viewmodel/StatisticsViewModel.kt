@@ -1,16 +1,22 @@
 package com.example.ailearning.presentation.viewmodel
 
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ailearning.domain.model.AiAnalysis
 import com.example.ailearning.domain.model.CategoryStatistics
 import com.example.ailearning.domain.model.DailyStatistics
 import com.example.ailearning.domain.model.DifficultyStatistics
+import com.example.ailearning.domain.model.GlobalStatistics
 import com.example.ailearning.domain.model.OverallStatistics
 import com.example.ailearning.domain.model.StatisticsPeriod
 import com.example.ailearning.domain.usecase.AnalyzeLearningUseCase
+import com.example.ailearning.domain.usecase.ExportStatisticsUseCase
 import com.example.ailearning.domain.usecase.GetCategoryStatisticsUseCase
 import com.example.ailearning.domain.usecase.GetDifficultyStatisticsUseCase
+import com.example.ailearning.domain.usecase.GetGlobalStatisticsUseCase
 import com.example.ailearning.domain.usecase.GetLatestAnalysisUseCase
 import com.example.ailearning.domain.usecase.GetLearningTrendUseCase
 import com.example.ailearning.domain.usecase.GetOverallStatisticsUseCase
@@ -26,6 +32,8 @@ class StatisticsViewModel : ViewModel() {
     private val getLearningTrendUseCase = AppContainer.getLearningTrendUseCase
     private val analyzeLearningUseCase = AppContainer.analyzeLearningUseCase
     private val getLatestAnalysisUseCase = AppContainer.getLatestAnalysisUseCase
+    private val getGlobalStatisticsUseCase = AppContainer.getGlobalStatisticsUseCase
+    private val exportStatisticsUseCase = AppContainer.exportStatisticsUseCase
     
     private val _overallStats = MutableStateFlow<OverallStatistics?>(null)
     val overallStats: StateFlow<OverallStatistics?> = _overallStats
@@ -41,6 +49,16 @@ class StatisticsViewModel : ViewModel() {
     
     private val _aiAnalysis = MutableStateFlow<AiAnalysis?>(null)
     val aiAnalysis: StateFlow<AiAnalysis?> = _aiAnalysis
+    
+    // ---- 全セット横断統括統計（v1.6.6）----
+    private val _globalStats = MutableStateFlow<GlobalStatistics?>(null)
+    val globalStats: StateFlow<GlobalStatistics?> = _globalStats
+    
+    // ---- エクスポート----
+    private val _exportUri = MutableStateFlow<Uri?>(null)
+    val exportUri: StateFlow<Uri?> = _exportUri
+    private val _isExporting = MutableStateFlow(false)
+    val isExporting: StateFlow<Boolean> = _isExporting
     
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -91,6 +109,59 @@ class StatisticsViewModel : ViewModel() {
         }
     }
     
+    /** 全セット横断の統括統計を読み込む */
+    fun loadGlobalStatistics() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            val result = getGlobalStatisticsUseCase()
+            if (result.isSuccess) {
+                _globalStats.value = result.getOrNull()
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "統計の取得に失敗しました"
+            }
+            
+            _isLoading.value = false
+        }
+    }
+    
+    /** 統計を CSV エクスポートし、共有用 Uri を発行する */
+    fun exportStatistics() {
+        viewModelScope.launch {
+            _isExporting.value = true
+            _error.value = null
+            
+            val result = exportStatisticsUseCase()
+            if (result.isSuccess) {
+                _exportUri.value = result.getOrNull()
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "エクスポートに失敗しました"
+            }
+            
+            _isExporting.value = false
+        }
+    }
+    
+    /** エクスポートファイルを他アプリで共有するインテントを発行する */
+    fun shareExport(context: android.content.Context): Intent? {
+        val uri = _exportUri.value ?: return null
+        val fileAuthority = "${context.packageName}.fileprovider"
+        val contentUri = try {
+            FileProvider.getUriForFile(context, fileAuthority, java.io.File(uri.path))
+        } catch (e: Exception) {
+            uri
+        }
+        
+        return Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_STREAM, contentUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET)
+            putExtra(Intent.EXTRA_SUBJECT, "Qon 統計エクスポート")
+            putExtra(Intent.EXTRA_TEXT, "Qon の学習統計をエクスポートしました。")
+        }
+    }
+    
     fun generateAnalysis(type: String = "weakness") {
         if (currentLearningSetId.isEmpty()) return
         
@@ -111,5 +182,6 @@ class StatisticsViewModel : ViewModel() {
     
     fun refresh() {
         loadStatistics(currentLearningSetId, currentPeriod)
+        loadGlobalStatistics()
     }
 }

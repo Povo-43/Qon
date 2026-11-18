@@ -89,6 +89,10 @@ object AppContainer {
     val getDifficultyStatisticsUseCase: GetDifficultyStatisticsUseCase get() = GetDifficultyStatisticsUseCase(answerHistoryRepository)
     val getLearningTrendUseCase: GetLearningTrendUseCase get() = GetLearningTrendUseCase(answerHistoryRepository)
 
+    // Use cases - Global Statistics (v1.6.6)
+    val getGlobalStatisticsUseCase: GetGlobalStatisticsUseCase get() = GetGlobalStatisticsUseCase(answerHistoryRepository, settingsPreferences)
+    val exportStatisticsUseCase: ExportStatisticsUseCase get() = ExportStatisticsUseCase(appContext, answerHistoryRepository)
+
     // Use cases - ApiKey
     val addApiKeyUseCase: AddApiKeyUseCase get() = AddApiKeyUseCase(apiKeyRepository, encryptionManager)
     val getAllApiKeysUseCase: GetAllApiKeysUseCase get() = GetAllApiKeysUseCase(apiKeyRepository)

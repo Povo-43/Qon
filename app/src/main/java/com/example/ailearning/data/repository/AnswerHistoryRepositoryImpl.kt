@@ -5,6 +5,9 @@ import com.example.ailearning.domain.model.AnswerHistory
 import com.example.ailearning.domain.model.CategoryStatistics
 import com.example.ailearning.domain.model.DifficultyStatistics
 import com.example.ailearning.domain.repository.AnswerHistoryRepository
+import com.example.ailearning.domain.repository.DailyStatRow
+import com.example.ailearning.domain.repository.SourceCount
+import com.example.ailearning.domain.repository.SourceStat
 import javax.inject.Inject
 
 class AnswerHistoryRepositoryImpl @Inject constructor(
@@ -39,6 +42,26 @@ class AnswerHistoryRepositoryImpl @Inject constructor(
                 accuracy = it.accuracy,
                 avgResponseTimeMs = it.avgTime
             ) 
+        }
+    )
+
+    // ---- 全セット横断統計（v1.6.6）----
+    override suspend fun countAll() = Result.success(dao.countAll())
+    override suspend fun getAccuracyAll() = Result.success(dao.getAccuracyAll())
+    override suspend fun getAvgResponseTimeCorrectAll() = Result.success(dao.getAvgResponseTimeCorrectAll())
+    override suspend fun getTotalResponseTimeAll() = Result.success(dao.getTotalResponseTimeAll())
+    override suspend fun getStatsBySource() = Result.success(
+        dao.getStatsBySource().map {
+            SourceStat(source = it.source, total = it.total, correct = it.correct, avgTime = it.avgTime)
+        }
+    )
+    override suspend fun getCountBySource(source: String) = Result.success(
+        SourceCount(total = dao.getCountBySource(source).total, correct = dao.getCountBySource(source).correct)
+    )
+    override suspend fun getAllByDateRange(startTime: Long, endTime: Long) = Result.success(dao.getAllByDateRange(startTime, endTime))
+    override suspend fun getDailyStatsAll() = Result.success(
+        dao.getDailyStatsAll().map {
+            DailyStatRow(date = it.date, total = it.total, correct = it.correct, avgTime = it.avgTime, studyTime = it.studyTime)
         }
     )
 }

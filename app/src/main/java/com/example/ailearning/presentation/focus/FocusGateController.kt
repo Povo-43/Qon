@@ -183,6 +183,9 @@ object FocusGateController {
                         AppContainer.settingsPreferences.incrementFocusWrongCount()
                     else -> Unit
                 }
+                // 解く量に合わせてストックを維持：回答後、その学習セットの残り問題数をチェックし
+                // 目標の半分を下回っていたら裏でAI問題を生成して補充する（時間ベースではなく消費ベース）
+                topUpIfLowStock(question.learningSetId)
             }
         }
     }
@@ -214,8 +217,16 @@ object FocusGateController {
         session.onQuestionLoaded(result?.question)
         val setId = result?.setId
         if (result?.poolExhausted == true && setId != null) {
-            // 未出題の問題が無くなった → 裏で問題を生成して補充してもらう
+            // 未出題の問題が無くなった → 緊急補充
             requestPrefetch(setId)
+        } else if (setId != null) {
+            // 残り問題数が目標の半分を下回ったら、裏で補充を開始する
+            // （「同じ問題ばかり出る」を根本から防ぐため、早めに生成する）
+            val count = AppContainer.questionRepository.countByLearningSet(setId).getOrDefault(0)
+            val target = AppContainer.settingsPreferences.prefetchTargetCount
+            if (count < target / 2) {
+                requestPrefetch(setId)
+            }
         }
         result?.question?.let {
             runCatching { AppContainer.settingsPreferences.appendFocusRecentQuestionId(it.id) }
@@ -226,6 +237,15 @@ object FocusGateController {
         runCatching {
             com.example.ailearning.presentation.work.QuestionPrefetchScheduler
                 .requestPrefetch(AppContainer.appContext, setId, force = true)
+        }
+    }
+
+    /** 回答後のストック維持。残り問題数が目標の半分を下回ったら裏で補充する。 */
+    private suspend fun topUpIfLowStock(setId: String) {
+        val count = AppContainer.questionRepository.countByLearningSet(setId).getOrDefault(0)
+        val target = AppContainer.settingsPreferences.prefetchTargetCount
+        if (count < target / 2) {
+            requestPrefetch(setId)
         }
     }
 

@@ -57,11 +57,12 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
         val generate = AppContainer.generateQuestionsUseCase
         val prefs = AppContainer.settingsPreferences
 
+        // 補充目標件数。force=true（問題が尽きそう）のときは
+        // prefetch_target_count（初期50）まで一気に補充する。
         val targetCount = if (force) {
-            // 緊急補充：設定の目標件数まで一気に生成する
             prefs.prefetchTargetCount.coerceAtLeast(10)
         } else {
-            PREFILL_THRESHOLD
+            prefs.prefetchTargetCount.coerceAtLeast(10)
         }
 
         val sets = if (targetSetId != null) {
@@ -88,14 +89,11 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
         const val KEY_LEARNING_SET_ID = "learning_set_id"
         const val KEY_FORCE = "force"
 
-        /** この件数を下回るセットだけを補充する（通常時） */
-        const val PREFILL_THRESHOLD = 10
-
         /** 1回の生成で作る最大問数 */
-        const val MAX_GENERATE_COUNT = 10
+        const val MAX_GENERATE_COUNT = 20
 
         /** 1回の実行で生成する最大セット数（API 消費の暴走を防ぐ） */
-        const val MAX_GENERATIONS_PER_RUN = 5
+        const val MAX_GENERATIONS_PER_RUN = 10
     }
 }
 
@@ -138,9 +136,9 @@ object QuestionPrefetchScheduler {
         workManager(context).enqueueUniqueWork(UNIQUE_ALL, ExistingWorkPolicy.KEEP, request)
     }
 
-    /** 定期チェック（6時間ごと）。既存スケジュールは維持。 */
+    /** 定期チェック（2時間ごと）。既存スケジュールは維持。 */
     fun ensurePeriodicTopUp(context: Context) {
-        val request = PeriodicWorkRequestBuilder<QuestionPrefetchWorker>(6, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<QuestionPrefetchWorker>(2, TimeUnit.HOURS)
             .setConstraints(constraints())
             .build()
         workManager(context).enqueueUniquePeriodicWork(UNIQUE_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)

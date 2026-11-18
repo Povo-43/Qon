@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  集中モード用のアクセシビリティ設定。
+  画面の内容は読み取らず（canRetrieveWindowContent=false）、
+  ウィンドウ切替イベントから「前面アプリのパッケージ名」のみを受け取る。
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
+    android:canRetrieveWindowContent="false"
+    android:description="@string/focus_service_description"
+    android:notificationTimeout="100"
+    android:settingsActivity="com.example.ailearning.presentation.ui.MainActivity" />

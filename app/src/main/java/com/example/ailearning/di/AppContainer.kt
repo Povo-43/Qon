@@ -34,6 +34,7 @@ object AppContainer {
     val learningSessionDao: LearningSessionDao get() = database.learningSessionDao()
     val aiAnalysisDao: AiAnalysisDao get() = database.aiAnalysisDao()
     val widgetConfigDao: WidgetConfigDao get() = database.widgetConfigDao()
+    val focusBlockedAppDao: FocusBlockedAppDao get() = database.focusBlockedAppDao()
 
     // Repositories
     val learningSetRepository: LearningSetRepository get() = RepositoryModule.provideLearningSetRepository(learningSetDao)
@@ -43,6 +44,7 @@ object AppContainer {
     val learningSessionRepository: LearningSessionRepository get() = RepositoryModule.provideLearningSessionRepository(learningSessionDao)
     val aiAnalysisRepository: AiAnalysisRepository get() = RepositoryModule.provideAiAnalysisRepository(aiAnalysisDao)
     val widgetConfigRepository: WidgetConfigRepository get() = RepositoryModule.provideWidgetConfigRepository(widgetConfigDao)
+    val focusRepository: FocusRepository get() = RepositoryModule.provideFocusRepository(focusBlockedAppDao)
 
     // API clients
     val openAiClient: OpenAiApiClient get() = NetworkModule.provideOpenAiClient(ioDispatcher, encryptionManager)
@@ -108,4 +110,12 @@ object AppContainer {
     val updateWidgetConfigUseCase: UpdateWidgetConfigUseCase get() = UpdateWidgetConfigUseCase(widgetConfigRepository)
     val createWidgetConfigUseCase: CreateWidgetConfigUseCase get() = CreateWidgetConfigUseCase(widgetConfigRepository)
     val deleteWidgetConfigUseCase: DeleteWidgetConfigUseCase get() = DeleteWidgetConfigUseCase(widgetConfigRepository)
+
+    // Use cases - Focus (集中モード)
+    val settingsPreferences: com.example.ailearning.data.local.prefs.SettingsPreferences by lazy {
+        com.example.ailearning.data.local.prefs.SettingsPreferences(appContext)
+    }
+    val getFocusGateQuestionUseCase: GetFocusGateQuestionUseCase get() = GetFocusGateQuestionUseCase(questionRepository, learningSetRepository, settingsPreferences)
+    val grantFocusUnlockUseCase: GrantFocusUnlockUseCase get() = GrantFocusUnlockUseCase(settingsPreferences)
+    val recordFocusAnswerUseCase: RecordFocusAnswerUseCase get() = RecordFocusAnswerUseCase(answerHistoryRepository)
 }

@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- 集中モード: アプリ一覧（アイコン・ラベル）を取得するため。ストア配布ではないため宣言のみ -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:name=".AiLearningApplication"
@@ -62,6 +66,20 @@
         <receiver
             android:name=".presentation.widget.WidgetAnswerReceiver"
             android:exported="false" />
+
+        <!-- 集中モード: 前面アプリの監視 + 全画面ゲート（v1.6.0） -->
+        <service
+            android:name=".presentation.focus.FocusAccessibilityService"
+            android:exported="true"
+            android:label="@string/focus_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/focus_accessibility_service" />
+        </service>
 
         <!-- WorkManager is auto-initialized via Hilt -->
 

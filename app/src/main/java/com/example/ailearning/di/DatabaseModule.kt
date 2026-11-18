@@ -18,9 +18,23 @@ object DatabaseModule {
         }
     }
 
+    /** v2 → v3: 集中モード（ロック対象アプリ）テーブルを追加。既存データは保持する。 */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `focus_blocked_apps` (" +
+                    "`packageName` TEXT NOT NULL, " +
+                    "`label` TEXT NOT NULL, " +
+                    "`enabled` INTEGER NOT NULL, " +
+                    "`addedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`packageName`))"
+            )
+        }
+    }
+
     fun provideDatabase(context: Context): AppDatabase {
         return Room.databaseBuilder(context, AppDatabase::class.java, "ai_learning.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
     }

@@ -157,4 +157,8 @@
     <string name="generation_failed">問題生成に失敗しました</string>
     <string name="generation_failed_retry">再試行しますか？</string>
     <string name="no_api_key">APIキーが設定されていません\n設定からAPIキーを追加してください</string>
+
+    <!-- Focus Lock (集中モード) -->
+    <string name="focus_service_label">Qon 集中モード</string>
+    <string name="focus_service_description">画面ロックを解除するたびに、指定したアプリを使う前に1問出題します。画面の内容は読み取らず、前面アプリのパッケージ名のみを利用します。</string>
 </resources>

@@ -26,4 +26,7 @@ object RepositoryModule {
     
     fun provideWidgetConfigRepository(dao: WidgetConfigDao): WidgetConfigRepository =
         WidgetConfigRepositoryImpl(dao)
+
+    fun provideFocusRepository(dao: FocusBlockedAppDao): FocusRepository =
+        FocusRepositoryImpl(dao)
 }

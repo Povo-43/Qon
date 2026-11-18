@@ -44,10 +44,12 @@ import com.example.ailearning.presentation.ui.home.HomeScreen
 import com.example.ailearning.presentation.ui.learn.LearnScreen
 import com.example.ailearning.presentation.ui.manage.CreateLearningSetScreen
 import com.example.ailearning.presentation.ui.manage.LearningSetDetailScreen
+import com.example.ailearning.presentation.ui.settings.FocusLockScreen
 import com.example.ailearning.presentation.ui.settings.SettingsScreen
 import com.example.ailearning.presentation.ui.statistics.StatisticsScreen
 import com.example.ailearning.presentation.ui.theme.AiLearningTheme
 import com.example.ailearning.presentation.work.QuestionPrefetchScheduler
+import com.example.ailearning.presentation.viewmodel.FocusLockViewModel
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
 import com.example.ailearning.presentation.viewmodel.LearningViewModel
 import com.example.ailearning.presentation.viewmodel.SettingsViewModel
@@ -67,6 +69,7 @@ class MainActivity : ComponentActivity() {
         val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]
         val settingsViewModel: SettingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val statisticsViewModel: StatisticsViewModel = ViewModelProvider(this)[StatisticsViewModel::class.java]
+        val focusLockViewModel: FocusLockViewModel = ViewModelProvider(this)[FocusLockViewModel::class.java]
 
         setContent {
             AiLearningTheme {
@@ -196,6 +199,7 @@ class MainActivity : ComponentActivity() {
                             composable("settings") {
                                 SettingsScreen(
                                     viewModel = settingsViewModel,
+                                    onFocusLockClick = { navController.navigate("focus") },
                                     onBack = {
                                         navController.navigate("home") {
                                             popUpTo(navController.graph.findStartDestination().id) {
@@ -205,6 +209,13 @@ class MainActivity : ComponentActivity() {
                                             restoreState = true
                                         }
                                     }
+                                )
+                            }
+
+                            composable("focus") {
+                                FocusLockScreen(
+                                    viewModel = focusLockViewModel,
+                                    onBack = { navController.popBackStack() }
                                 )
                             }
                         }

@@ -6,6 +6,7 @@ import androidx.room.TypeConverters
 import com.example.ailearning.domain.model.AiAnalysis
 import com.example.ailearning.domain.model.ApiKey
 import com.example.ailearning.domain.model.AnswerHistory
+import com.example.ailearning.domain.model.FocusBlockedApp
 import com.example.ailearning.domain.model.LearningSession
 import com.example.ailearning.domain.model.LearningSet
 import com.example.ailearning.domain.model.Question
@@ -19,9 +20,10 @@ import com.example.ailearning.domain.model.WidgetConfig
         ApiKey::class,
         LearningSession::class,
         AiAnalysis::class,
-        WidgetConfig::class
+        WidgetConfig::class,
+        FocusBlockedApp::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -33,4 +35,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun learningSessionDao(): LearningSessionDao
     abstract fun aiAnalysisDao(): AiAnalysisDao
     abstract fun widgetConfigDao(): WidgetConfigDao
+    abstract fun focusBlockedAppDao(): FocusBlockedAppDao
 }

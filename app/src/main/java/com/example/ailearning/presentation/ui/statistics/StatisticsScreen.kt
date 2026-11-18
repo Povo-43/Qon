@@ -57,33 +57,33 @@ fun StatisticsScreen(
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    var selectedSetId by remember { mutableStateOf<String?>(initialSetId) }
+    var selectedSetId by remember { mutableStateOf<String?>(initialSetId ?: "__global__") }
     var period by remember { mutableStateOf(StatisticsPeriod.ALL) }
 
-    LaunchedEffect(learningSets, initialSetId) {
-        if (selectedSetId == null || learningSets.none { it.id == selectedSetId }) {
-            selectedSetId = learningSets.firstOrNull { it.id == initialSetId }?.id
-                ?: learningSets.firstOrNull()?.id
+    val isGlobalSelected = selectedSetId == "__global__"
+
+    LaunchedEffect(initialSetId) {
+        if (learningSets.none { it.id == selectedSetId } && !isGlobalSelected) {
+            selectedSetId = learningSets.firstOrNull()?.id ?: "__global__"
         }
     }
 
     LaunchedEffect(selectedSetId, period) {
-        selectedSetId?.let { viewModel.loadStatistics(it, period) }
+        if (isGlobalSelected) {
+            viewModel.loadGlobalStatistics()
+        } else {
+            selectedSetId?.let { viewModel.loadStatistics(it, period) }
+        }
     }
 
-    // 全セット横断統括統計を読み込む
-    LaunchedEffect(Unit) {
-        viewModel.loadGlobalStatistics()
-    }
-
-    val selectedSet = learningSets.firstOrNull { it.id == selectedSetId }
+    val selectedSet = if (isGlobalSelected) null else learningSets.firstOrNull { it.id == selectedSetId }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AppTopBar(
                 title = "統計・AI分析",
-                subtitle = selectedSet?.name,
+                subtitle = if (isGlobalSelected) "全体（すべての学習セット）" else selectedSet?.name,
                 onBack = onBack
             )
         }
@@ -130,6 +130,11 @@ fun StatisticsScreen(
                             .padding(horizontal = 20.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        FilterChip(
+                            selected = isGlobalSelected,
+                            onClick = { selectedSetId = "__global__" },
+                            label = { Text("全体", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                        )
                         learningSets.forEach { set ->
                             FilterChip(
                                 selected = set.id == selectedSetId,
@@ -146,269 +151,280 @@ fun StatisticsScreen(
                             .padding(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        PeriodChip("今日", StatisticsPeriod.TODAY, period) { period = it }
-                        PeriodChip("7日", StatisticsPeriod.WEEK, period) { period = it }
-                        PeriodChip("30日", StatisticsPeriod.MONTH, period) { period = it }
-                        PeriodChip("全期間", StatisticsPeriod.ALL, period) { period = it }
+                        if (!isGlobalSelected) {
+                            PeriodChip("今日", StatisticsPeriod.TODAY, period) { period = it }
+                            PeriodChip("7日", StatisticsPeriod.WEEK, period) { period = it }
+                            PeriodChip("30日", StatisticsPeriod.MONTH, period) { period = it }
+                            PeriodChip("全期間", StatisticsPeriod.ALL, period) { period = it }
+                        }
                     }
 
-                    overallStats?.let { stats ->
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                StatCard(
-                                    title = "解答数",
-                                    value = stats.totalQuestions.toString(),
-                                    subtitle = null,
-                                    icon = Icons.Rounded.Quiz,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                StatCard(
-                                    title = "正答率",
-                                    value = "${(stats.overallAccuracy * 100).toInt()}%",
-                                    subtitle = null,
-                                    icon = Icons.Rounded.CheckCircle,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                StatCard(
-                                    title = "学習時間",
-                                    value = stats.getFormattedStudyTime(),
-                                    subtitle = null,
-                                    icon = Icons.Rounded.Timer,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                StatCard(
-                                    title = "連続学習",
-                                    value = "${stats.currentStreakDays}日",
-                                    subtitle = "最長 ${stats.longestStreakDays}日",
-                                    icon = Icons.Rounded.LocalFireDepartment,
-                                    color = Color(0xFFF97316),
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    } ?: Text(
-                        text = "この学習セットにはまだ解答履歴がありません。",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-
-                    // ---- 全体統括統計（すべての学習セット横断）----
-                    globalStats?.let { g ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                            )
-                        ) {
+                    if (!isGlobalSelected) {
+                        overallStats?.let { stats ->
                             Column(
-                                modifier = Modifier.fillMaxWidth().padding(18.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp)
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Text(
-                                    "全体統括統計（すべてのセット）",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
                                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     StatCard(
-                                        title = "総解答数",
-                                        value = g.totalQuestions.toString(),
-                                        subtitle = "全セット合計",
+                                        title = "解答数",
+                                        value = stats.totalQuestions.toString(),
+                                        subtitle = null,
                                         icon = Icons.Rounded.Quiz,
                                         color = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.weight(1f)
                                     )
                                     StatCard(
-                                        title = "全体正答率",
-                                        value = "${(g.overallAccuracy * 100).toInt()}%",
+                                        title = "正答率",
+                                        value = "${(stats.overallAccuracy * 100).toInt()}%",
                                         subtitle = null,
                                         icon = Icons.Rounded.CheckCircle,
                                         color = MaterialTheme.colorScheme.tertiary,
                                         modifier = Modifier.weight(1f)
                                     )
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     StatCard(
-                                        title = "総学習時間",
-                                        value = g.getFormattedStudyTime(),
+                                        title = "学習時間",
+                                        value = stats.getFormattedStudyTime(),
                                         subtitle = null,
                                         icon = Icons.Rounded.Timer,
                                         color = MaterialTheme.colorScheme.secondary,
                                         modifier = Modifier.weight(1f)
                                     )
+                                    StatCard(
+                                        title = "連続学習",
+                                        value = "${stats.currentStreakDays}日",
+                                        subtitle = "最長 ${stats.longestStreakDays}日",
+                                        icon = Icons.Rounded.LocalFireDepartment,
+                                        color = Color(0xFFF97316),
+                                        modifier = Modifier.weight(1f)
+                                    )
                                 }
-                                Text(
-                                    "ソース別内訳",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(top = 4.dp)
+                            }
+                        } ?: Text(
+                            text = "この学習セットにはまだ解答履歴がありません。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
+
+                    if (isGlobalSelected) {
+                        globalStats?.let { g ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                                 )
-                                g.sourceBreakdown().forEach { s ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Column {
-                                            Text(s.label, fontSize = 13.sp)
-                                            Text(
-                                                "${s.correct}/${s.total} 問",
-                                                fontSize = 11.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                        Text(
-                                            "${(s.accuracy * 100).toInt()}%",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.primary
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Text(
+                                        "全体統括統計（すべてのセット）",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        StatCard(
+                                            title = "総解答数",
+                                            value = g.totalQuestions.toString(),
+                                            subtitle = "全セット合計",
+                                            icon = Icons.Rounded.Quiz,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        StatCard(
+                                            title = "全体正答率",
+                                            value = "${(g.overallAccuracy * 100).toInt()}%",
+                                            subtitle = null,
+                                            icon = Icons.Rounded.CheckCircle,
+                                            color = MaterialTheme.colorScheme.tertiary,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        StatCard(
+                                            title = "総学習時間",
+                                            value = g.getFormattedStudyTime(),
+                                            subtitle = null,
+                                            icon = Icons.Rounded.Timer,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.weight(1f)
                                         )
                                     }
-                                    Divider()
-                                }
-                                // 集中モード専用
-                                if (g.focusUnlockCount > 0 || g.focusWrongCount > 0) {
                                     Text(
-                                        "集中モード（アプリロック）",
+                                        "ソース別内訳",
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        StatCard(
-                                            title = "解除回数",
-                                            value = g.focusUnlockCount.toString(),
-                                            subtitle = "問題に正解して解除",
-                                            icon = Icons.Rounded.Quiz,
-                                            color = Color(0xFFF97316),
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        StatCard(
-                                            title = "誤答回数",
-                                            value = g.focusWrongCount.toString(),
-                                            subtitle = "集中モードでの不正解",
-                                            icon = Icons.Rounded.Timer,
-                                            color = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.weight(1f)
-                                        )
+                                    g.sourceBreakdown().forEach { s ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Column {
+                                                Text(s.label, fontSize = 13.sp)
+                                                Text(
+                                                    "${s.correct}/${s.total} 問",
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Text(
+                                                "${(s.accuracy * 100).toInt()}%",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        Divider()
                                     }
-                                }
-                            }
-                        }
-                    }
-
-                    if (trendData.any { it.total > 0 }) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("学習の推移", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text(
-                                    "日ごとの解答数",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                TrendBars(trendData.takeLast(14))
-                            }
-                        }
-                    }
-
-                    if (categoryStats.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("分野別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                categoryStats.forEach { stat ->
-                                    CategoryStatRow(stat = stat)
-                                }
-                            }
-                        }
-                    }
-
-                    if (difficultyStats.isNotEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(22.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text("難易度別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                difficultyStats.forEach { stat ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(stat.getDifficultyLabel(), fontSize = 13.sp)
+                                    if (g.focusUnlockCount > 0 || g.focusWrongCount > 0) {
                                         Text(
-                                            "${stat.correct}/${stat.total}  ${(stat.accuracy * 100).toInt()}%",
+                                            "集中モード（アプリロック）",
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(top = 4.dp)
                                         )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            StatCard(
+                                                title = "解除回数",
+                                                value = g.focusUnlockCount.toString(),
+                                                subtitle = "問題に正解して解除",
+                                                icon = Icons.Rounded.Quiz,
+                                                color = Color(0xFFF97316),
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            StatCard(
+                                                title = "誤答回数",
+                                                value = g.focusWrongCount.toString(),
+                                                subtitle = "集中モードでの不正解",
+                                                icon = Icons.Rounded.Timer,
+                                                color = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } ?: Text(
+                            text = "まだ統計データがありません。",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        )
+                    }
+
+                    if (!isGlobalSelected) {
+                        if (trendData.any { it.total > 0 }) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                    Text("学習の推移", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        "日ごとの解答数",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+                                    TrendBars(trendData.takeLast(14))
+                                }
+                            }
+                        }
+
+                        if (categoryStats.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                    Text("分野別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    categoryStats.forEach { stat ->
+                                        CategoryStatRow(stat = stat)
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        if (difficultyStats.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(22.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                             ) {
-                                Icon(Icons.Rounded.Psychology, contentDescription = null)
-                                Text("AI分析レポート", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                    Text("難易度別の正答率", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                    difficultyStats.forEach { stat ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(stat.getDifficultyLabel(), fontSize = 13.sp)
+                                            Text(
+                                                "${stat.correct}/${stat.total}  ${(stat.accuracy * 100).toInt()}%",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                            if (isAnalyzing) {
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                    Text("AIが分析中…", fontSize = 12.sp)
+                                    Icon(Icons.Rounded.Psychology, contentDescription = null)
+                                    Text("AI分析レポート", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                                 }
-                            } else {
-                                val analysis = aiAnalysis
-                                if (analysis != null) {
-                                    AnalysisContent(content = analysis.content)
+                                if (isAnalyzing) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        Text("AIが分析中…", fontSize = 12.sp)
+                                    }
                                 } else {
-                                    Text(
-                                        "5問以上解答すると、AIが苦手分野とおすすめの学習法を分析します。",
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                Button(
-                                    onClick = { viewModel.generateAnalysis("weakness") },
-                                    modifier = Modifier.fillMaxWidth().height(46.dp),
-                                    shape = RoundedCornerShape(14.dp)
-                                ) {
-                                    Text(if (analysis == null) "AI分析を実行" else "再分析する")
+                                    val analysis = aiAnalysis
+                                    if (analysis != null) {
+                                        AnalysisContent(content = analysis.content)
+                                    } else {
+                                        Text(
+                                            "5問以上解答すると、AIが苦手分野とおすすめの学習法を分析します。",
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    Button(
+                                        onClick = { viewModel.generateAnalysis("weakness") },
+                                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                                        shape = RoundedCornerShape(14.dp)
+                                    ) {
+                                        Text(if (analysis == null) "AI分析を実行" else "再分析する")
+                                    }
                                 }
                             }
                         }

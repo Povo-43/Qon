@@ -33,7 +33,18 @@ class GetFocusGateQuestionUseCase @Inject constructor(
             .getOrDefault(emptyList())
         if (candidates.isEmpty()) return null
 
-        return FocusLockPolicy.pickNext(candidates, excludeIds) { it.id }
+        // 除外条件を段階的に緩める。
+        // 1) このゲートで出題済み + 最近30問 を避ける
+        // 2) 出題済み + 直近10問 のみ避ける（問題数が少ないセット向け）
+        // 3) このゲートで出題済みだけ避ける（同一ゲート内の重複は絶対に防ぐ）
+        // 4) それでも無ければランダム
+        val recent = settingsPreferences.getFocusRecentQuestionIdList()
+        val strictExclude = excludeIds + recent.takeLast(RECENT_AVOID_STRICT)
+        val relaxedExclude = excludeIds + recent.takeLast(RECENT_AVOID_RELAXED)
+
+        return FocusLockPolicy.pickNext(candidates, strictExclude) { it.id }
+            ?: FocusLockPolicy.pickNext(candidates, relaxedExclude) { it.id }
+            ?: FocusLockPolicy.pickNext(candidates, excludeIds) { it.id }
             ?: candidates.random()
     }
 
@@ -50,6 +61,12 @@ class GetFocusGateQuestionUseCase @Inject constructor(
     companion object {
         /** 1回の取得で引く問題数。多めに引いて除外後の選択肢を確保する */
         private const val FETCH_LIMIT = 30
+
+        /** 直近この件数は必ず避ける */
+        private const val RECENT_AVOID_STRICT = 30
+
+        /** 問題数が少ないセットではここまで緩める */
+        private const val RECENT_AVOID_RELAXED = 10
     }
 }
 

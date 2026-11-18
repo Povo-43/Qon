@@ -30,6 +30,9 @@ class FocusAccessibilityService : AccessibilityService() {
     private var blockedPackages: Set<String> = emptySet()
     private var focusEnabledCached = false
 
+    /** 現在のキーボードのパッケージ（ゲートの閉じ判定から除外する） */
+    private var defaultImePackage: String? = null
+
     /** 設定画面のテスト表示などに使うインスタンス */
     companion object {
         @Volatile
@@ -68,6 +71,12 @@ class FocusAccessibilityService : AccessibilityService() {
         instance = this
         prefs = SettingsPreferences(applicationContext)
         focusEnabledCached = prefs.focusEnabled
+        defaultImePackage = runCatching {
+            android.provider.Settings.Secure.getString(
+                contentResolver,
+                android.provider.Settings.Secure.DEFAULT_INPUT_METHOD
+            )?.substringBefore('/')
+        }.getOrNull()
 
         // ロック対象アプリの変更を常時反映
         serviceScope.launch {
@@ -108,6 +117,19 @@ class FocusAccessibilityService : AccessibilityService() {
         // 期限切れの解除セッションが残っていれば掃除する
         if (prefs.focusUnlocked && !prefs.isFocusUnlockSessionActive()) {
             prefs.setFocusUnlocked(false)
+        }
+
+        // ゲート表示中に別アプリ（着信・ランチャー・通知など）が前面に出たら閉じる。
+        // ゲートが画面を塞ぎ続けて電話に出られない、といった事故を防ぐため。
+        // IME（キーボード）は無視する。
+        if (FocusGateController.isShowing) {
+            val isIme = foregroundPackage == defaultImePackage
+            if (!isIme && foregroundPackage !in blockedPackages) {
+                if (FocusGateController.canDismissByForeground()) {
+                    FocusGateController.dismiss()
+                    return
+                }
+            }
         }
 
         // 解除セッション中（前回正解してから有効期限内）は何もしない

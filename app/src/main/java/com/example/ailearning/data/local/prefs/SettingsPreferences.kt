@@ -99,12 +99,13 @@ class SettingsPreferences @Inject constructor(
     val focusWrongCount: Int
         get() = prefs.getInt("focus_wrong_count", 0)
 
-    /** 最近ゲートで出題した問題ID（重複出題防止用・カンマ区切り） */
-    fun getFocusRecentQuestionIds(): Set<String> =
+    /** 最近ゲートで出題した問題ID（重複出題防止用・古い順） */
+    fun getFocusRecentQuestionIdList(): List<String> =
         prefs.getString("focus_recent_question_ids", "")!!
             .split(",")
             .filter { it.isNotBlank() }
-            .toSet()
+
+    fun getFocusRecentQuestionIds(): Set<String> = getFocusRecentQuestionIdList().toSet()
 
     fun appendFocusRecentQuestionId(questionId: String) {
         val updated = LinkedHashSet(getFocusRecentQuestionIds())

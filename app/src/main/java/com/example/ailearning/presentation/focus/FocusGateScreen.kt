@@ -267,7 +267,8 @@ private fun GateWrong(state: FocusGateUiState, controller: FocusGateController) 
                     label = ('A' + index).toString(),
                     text = option,
                     onClick = {},
-                    highlight = highlight
+                    highlight = highlight,
+                    enabled = false
                 )
             }
 
@@ -370,7 +371,8 @@ private fun OptionRow(
     label: String,
     text: String,
     onClick: () -> Unit,
-    highlight: OptionHighlight
+    highlight: OptionHighlight,
+    enabled: Boolean = true
 ) {
     val colors = MaterialTheme.colorScheme
     val container by animateColorAsState(
@@ -389,7 +391,7 @@ private fun OptionRow(
 
     Surface(
         onClick = onClick,
-        enabled = onClick != {},
+        enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         color = container,
         border = androidx.compose.foundation.BorderStroke(1.dp, border),

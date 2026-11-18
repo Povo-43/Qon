@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,8 +40,17 @@ object FocusGateController {
     private var recordResults = true
     private var testMode = false
     private var lastDismissAt = 0L
+    private var shownAtMs = 0L
 
     val isShowing: Boolean get() = hostView != null
+
+    /**
+     * 別アプリが前面に出たことでゲートを閉じてよいか。
+     * 表示直後はランチャーの pause イベントなどが遅れて届くことがあるため、
+     * 一定時間は誤判定で閉じないようにする（着信時は少し遅れてでも閉じる）。
+     */
+    fun canDismissByForeground(): Boolean =
+        hostView != null && System.currentTimeMillis() - shownAtMs > FOREGROUND_DISMISS_GRACE_MS
 
     /**
      * ゲートを表示する。すでに表示中なら何もしない。
@@ -82,6 +90,7 @@ object FocusGateController {
             wm.addView(host, params)
             windowManager = wm
             hostView = host
+            shownAtMs = System.currentTimeMillis()
 
             scope.launch { loadQuestion() }
             observeSession()
@@ -145,11 +154,8 @@ object FocusGateController {
 
     private suspend fun loadQuestion() {
         questionShownAtMs = System.currentTimeMillis()
-        // 表示済み（このゲート + 過去30問分）を除外して取得
-        val exclude = buildSet {
-            addAll(session.excludeIds())
-            addAll(runCatching { AppContainer.settingsPreferences.getFocusRecentQuestionIds() }.getOrDefault(emptySet()))
-        }
+        // このゲートで表示済みの問題を必ず除外（過去分の回避はユースケース側で段階的に処理）
+        val exclude = session.excludeIds()
         val question = withTimeoutOrNull(LOAD_TIMEOUT_MS) {
             withContext(Dispatchers.IO) {
                 runCatching { AppContainer.getFocusGateQuestionUseCase(exclude) }
@@ -197,4 +203,6 @@ object FocusGateController {
     private const val FAIL_OPEN_DISMISS_DELAY_MS = 1_800L
     private const val CORRECT_ADVANCE_DELAY_MS = 750L
     private const val RE_SHOW_COOLDOWN_MS = 500L
+    /** ゲート表示直後の誤判定防止（ランチャー等の遅延イベント対策） */
+    private const val FOREGROUND_DISMISS_GRACE_MS = 800L
 }

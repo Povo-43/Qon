@@ -46,24 +46,24 @@ class GetFocusGateQuestionUseCase @Inject constructor(
             .getOrDefault(emptyList())
         if (candidates.isEmpty()) return FocusGateQuestion(null, setId, poolExhausted = false)
 
-        // 除外条件を段階的に緩める。
-        // 1) このゲートで出題済み + 最近30問 を避ける
-        // 2) 出題済み + 直近10問 のみ避ける（問題数が少ないセット向け）
-        // 3) このゲートで出題済みだけ避ける（同一ゲート内の重複は絶対に防ぐ）
-        // 4) それでも無ければランダム（= 問題数が足りず再利用。補充が必要）
-        val recent = settingsPreferences.getFocusRecentQuestionIdList()
-        val strictExclude = excludeIds + recent.takeLast(RECENT_AVOID_STRICT)
-        val relaxedExclude = excludeIds + recent.takeLast(RECENT_AVOID_RELAXED)
+        val recent = settingsPreferences.getFocusRecentQuestionIdList() // 古い順
 
-        val picked = FocusLockPolicy.pickNext(candidates, strictExclude) { it.id }
-            ?: FocusLockPolicy.pickNext(candidates, relaxedExclude) { it.id }
-            ?: FocusLockPolicy.pickNext(candidates, excludeIds) { it.id }
-
-        return if (picked != null) {
-            FocusGateQuestion(picked, setId, poolExhausted = false)
-        } else {
-            FocusGateQuestion(candidates.random(), setId, poolExhausted = true)
+        // 最近出題した問題を避けたいが、問題数が少ないとすべて除外して候補が0になる。
+        // そのため「最近 N 問を除外」の N を、候補が出るまで1つずつ減らしていく。
+        // 古い出題済み問題から順に復活させるため、同じ問題が短期間で繰り返し出るのを防ぐ。
+        val maxRecent = recent.size
+        for (i in 0..maxRecent) {
+            // i=0 は最近maxRecent件（=すべて）を除外、i=maxRecent は0件除外（＝このゲート内のみ）
+            val recentExclude = recent.takeLast(maxRecent - i).toSet()
+            val combined = excludeIds + recentExclude
+            val picked = FocusLockPolicy.pickNext(candidates, combined) { it.id }
+            if (picked != null) {
+                return FocusGateQuestion(picked, setId, poolExhausted = i > 0)
+            }
         }
+
+        // ここには到達しないはずだが、念のためランダム（=問題が極端に少ない）
+        return FocusGateQuestion(candidates.random(), setId, poolExhausted = true)
     }
 
     private suspend fun findSetIdWithQuestions(): String? {
@@ -79,12 +79,6 @@ class GetFocusGateQuestionUseCase @Inject constructor(
     companion object {
         /** 1回の取得で引く問題数。多めに引いて除外後の選択肢を確保する */
         private const val FETCH_LIMIT = 30
-
-        /** 直近この件数は必ず避ける */
-        private const val RECENT_AVOID_STRICT = 30
-
-        /** 問題数が少ないセットではここまで緩める */
-        private const val RECENT_AVOID_RELAXED = 10
     }
 }
 

@@ -228,7 +228,42 @@ fun LearnScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            LoadingOverlay(isVisible = isLoading || isGenerating)
+            // 最初の1問が無い間だけ全面ローディング。セッション中の追加生成は邪魔をしない
+            val showBlockingLoading = isLoading || (isGenerating && questions.isEmpty())
+            LoadingOverlay(
+                isVisible = showBlockingLoading,
+                title = "AIが問題を生成中…",
+                subtitle = "4択問題を作成しています。\nモデルによっては1分ほどかかることがあります。",
+                onCancel = { viewModel.cancelGeneration() }
+            )
+
+            // セッション中の裏生成は小さなバナーで通知
+            if (isGenerating && questions.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Text(
+                            text = "新しい問題を生成中… 完成すると追加されます",
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
         }
     }
 }

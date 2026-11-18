@@ -19,6 +19,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeoutOrNull
+
 class LearningViewModel : ViewModel() {
     private val generateQuestionsUseCase = AppContainer.generateQuestionsUseCase
     private val getRandomQuestionsUseCase = AppContainer.getRandomQuestionsUseCase
@@ -66,6 +70,9 @@ class LearningViewModel : ViewModel() {
 
     /** バックグラウンド生成完了時に、セッションが変わっていないか確認するためのトークン */
     private var sessionToken = 0
+
+    private var learningJob: Job? = null
+    private var generatingJob: Job? = null
     
     val currentQuestionNumber: Int
         get() = _currentQuestionIndex.value + 1
@@ -78,65 +85,78 @@ class LearningViewModel : ViewModel() {
     
     fun startLearning(learningSetId: String, mode: String, count: Int = 10) {
         currentMode = mode
-        viewModelScope.launch {
-            sessionToken++
-            val token = sessionToken
-            _isLoading.value = true
-            _error.value = null
-            _sessionComplete.value = false
-            
-            val sessionResult = startSessionUseCase(learningSetId, mode)
-            if (sessionResult.isFailure) {
-                _error.value = sessionResult.exceptionOrNull()?.message ?: "セッション開始に失敗"
+        learningJob?.cancel()
+        learningJob = viewModelScope.launch {
+            try {
+                startLearningInternal(learningSetId, mode, count)
+            } catch (e: CancellationException) {
+                _error.value = "読み込みをキャンセルしました"
+                throw e
+            } finally {
                 _isLoading.value = false
-                return@launch
             }
-            
-            _session.value = sessionResult.getOrNull()
+        }
+    }
 
-            var deferGeneration = false
-            val questionsResult = when (mode) {
-                "continuous" -> {
-                    // 保存済みの問題があれば即座に開始し、新しい問題は裏で生成する
-                    val stored = getRandomQuestionsUseCase(learningSetId, count).getOrElse { emptyList() }
-                    if (stored.isNotEmpty()) {
-                        deferGeneration = true
-                        Result.success(stored)
-                    } else {
-                        generateQuestionsUseCase(learningSetId, count)
-                    }
+    private suspend fun startLearningInternal(learningSetId: String, mode: String, count: Int) {
+        sessionToken++
+        val token = sessionToken
+        _isLoading.value = true
+        _error.value = null
+        _sessionComplete.value = false
+
+        val sessionResult = startSessionUseCase(learningSetId, mode)
+        if (sessionResult.isFailure) {
+            _error.value = sessionResult.exceptionOrNull()?.message ?: "セッション開始に失敗"
+            return
+        }
+
+        _session.value = sessionResult.getOrNull()
+
+        var deferGeneration = false
+        val questionsResult = when (mode) {
+            "continuous" -> {
+                // 保存済みの問題があれば即座に開始し、新しい問題は裏で生成する
+                val stored = getRandomQuestionsUseCase(learningSetId, count).getOrElse { emptyList() }
+                if (stored.isNotEmpty()) {
+                    deferGeneration = true
+                    Result.success(stored)
+                } else {
+                    generateWithTimeout(learningSetId, count)
                 }
-                "review" -> getWeakQuestionsUseCase(learningSetId, count)
-                "random" -> getRandomQuestionsUseCase(learningSetId, count)
-                "unit" -> {
-                    if (currentCategory != null) {
-                        getQuestionsByCategoryUseCase(learningSetId, currentCategory!!, count)
-                    } else if (currentDifficulty != null) {
-                        getQuestionsByDifficultyUseCase(learningSetId, currentDifficulty!!, count)
-                    } else {
-                        getRandomQuestionsUseCase(learningSetId, count)
-                    }
-                }
-                else -> getRandomQuestionsUseCase(learningSetId, count)
             }
-
-            if (questionsResult.isSuccess) {
-                val qs = questionsResult.getOrNull() ?: emptyList()
-                if (qs.isEmpty()) {
-                    _error.value = when (mode) {
-                        "review" -> "復習する問題がありません。\nまずは連続学習で問題を生成しましょう。"
-                        "random", "unit" -> "保存済みの問題がありません。\n連続学習を実行するか、問題を生成してください。"
-                        else -> "問題を生成できませんでした。もう一度お試しください。"
-                    }
+            "review" -> getWeakQuestionsUseCase(learningSetId, count)
+            "random" -> getRandomQuestionsUseCase(learningSetId, count)
+            "unit" -> {
+                if (currentCategory != null) {
+                    getQuestionsByCategoryUseCase(learningSetId, currentCategory!!, count)
+                } else if (currentDifficulty != null) {
+                    getQuestionsByDifficultyUseCase(learningSetId, currentDifficulty!!, count)
+                } else {
+                    getRandomQuestionsUseCase(learningSetId, count)
                 }
-                _questions.value = qs
-                _currentQuestionIndex.value = 0
-                _currentQuestion.value = qs.firstOrNull()
+            }
+            else -> getRandomQuestionsUseCase(learningSetId, count)
+        }
 
-                if (deferGeneration) {
-                    viewModelScope.launch {
-                        _isGenerating.value = true
-                        val result = generateQuestionsUseCase(learningSetId, count)
+        if (questionsResult.isSuccess) {
+            val qs = questionsResult.getOrNull() ?: emptyList()
+            if (qs.isEmpty()) {
+                _error.value = when (mode) {
+                    "review" -> "復習する問題がありません。\nまずは連続学習で問題を生成しましょう。"
+                    "random", "unit" -> "保存済みの問題がありません。\n連続学習を実行するか、問題を生成してください。"
+                    else -> "問題を生成できませんでした。もう一度お試しください。"
+                }
+            }
+            _questions.value = qs
+            _currentQuestionIndex.value = 0
+            _currentQuestion.value = qs.firstOrNull()
+
+            if (deferGeneration) {
+                viewModelScope.launch {
+                    _isGenerating.value = true
+                    try {
+                        val result = generateWithTimeout(learningSetId, count)
                         // 生成中に別セッションへ切り替わっていたら反映しない
                         if (token == sessionToken && result.isSuccess) {
                             val fresh = result.getOrDefault(emptyList())
@@ -144,34 +164,62 @@ class LearningViewModel : ViewModel() {
                                 _questions.value = _questions.value + fresh
                             }
                         }
+                    } finally {
                         if (token == sessionToken) {
                             _isGenerating.value = false
                         }
                     }
                 }
-            } else {
-                _error.value = questionsResult.exceptionOrNull()?.message ?: "問題の取得に失敗"
             }
-
-            _isLoading.value = false
+        } else {
+            _error.value = questionsResult.exceptionOrNull()?.message ?: "問題の取得に失敗"
         }
     }
-    
+
+    /** 生成を最大 {@link GENERATION_TIMEOUT_MS} まで待ち、超過したらタイムアウト扱いにする。 */
+    private suspend fun generateWithTimeout(learningSetId: String, count: Int): Result<List<Question>> {
+        val result = withTimeoutOrNull(GENERATION_TIMEOUT_MS) {
+            generateQuestionsUseCase(learningSetId, count)
+        }
+        return result ?: Result.failure(
+            Exception(
+                "問題生成がタイムアウトしました（${GENERATION_TIMEOUT_MS / 1000}秒）。\n" +
+                    "ネットワーク状況を確認するか、少し待ってから再試行してください。"
+            )
+        )
+    }
+
+    /** 読み込み・生成をキャンセルする（ローディングのキャンセルボタン用）。 */
+    fun cancelGeneration() {
+        learningJob?.cancel()
+        generatingJob?.cancel()
+        learningJob = null
+        generatingJob = null
+        _isLoading.value = false
+        _isGenerating.value = false
+    }
+
     fun generateMoreQuestions(learningSetId: String, count: Int = 10) {
-        viewModelScope.launch {
+        generatingJob?.cancel()
+        generatingJob = viewModelScope.launch {
             _isGenerating.value = true
             _error.value = null
-            val result = generateQuestionsUseCase(learningSetId, count)
-            if (result.isSuccess) {
-                val newQuestions = result.getOrNull() ?: emptyList()
-                _questions.value = _questions.value + newQuestions
-                if (_currentQuestion.value == null) {
-                    _currentQuestion.value = _questions.value.firstOrNull()
+            try {
+                val result = generateWithTimeout(learningSetId, count)
+                if (result.isSuccess) {
+                    val newQuestions = result.getOrNull() ?: emptyList()
+                    _questions.value = _questions.value + newQuestions
+                    if (_currentQuestion.value == null) {
+                        _currentQuestion.value = _questions.value.firstOrNull()
+                    }
+                } else {
+                    _error.value = result.exceptionOrNull()?.message ?: "問題生成に失敗"
                 }
-            } else {
-                _error.value = result.exceptionOrNull()?.message ?: "問題生成に失敗"
+            } catch (e: CancellationException) {
+                // キャンセル時はエラーを出さない
+            } finally {
+                _isGenerating.value = false
             }
-            _isGenerating.value = false
         }
     }
 
@@ -241,6 +289,10 @@ class LearningViewModel : ViewModel() {
     
     fun reset() {
         sessionToken++
+        learningJob?.cancel()
+        generatingJob?.cancel()
+        learningJob = null
+        generatingJob = null
         _questions.value = emptyList()
         _currentQuestionIndex.value = 0
         _currentQuestion.value = null
@@ -249,5 +301,10 @@ class LearningViewModel : ViewModel() {
         _lastAnswer.value = null
         _sessionComplete.value = false
         _error.value = null
+    }
+
+    companion object {
+        /** AI生成の待ち時間上限（ミリ秒）。 */
+        const val GENERATION_TIMEOUT_MS = 150_000L
     }
 }

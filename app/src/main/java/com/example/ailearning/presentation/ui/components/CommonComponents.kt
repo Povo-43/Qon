@@ -31,7 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -253,30 +257,76 @@ fun AppTopBar(
 }
 
 @Composable
-fun LoadingOverlay(isVisible: Boolean) {
-    if (isVisible) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            SurfaceSpinner()
+fun LoadingOverlay(
+    isVisible: Boolean,
+    title: String? = null,
+    subtitle: String? = null,
+    onCancel: (() -> Unit)? = null
+) {
+    if (!isVisible) return
+
+    var elapsedSeconds by remember { mutableStateOf(0) }
+    LaunchedEffect(isVisible) {
+        elapsedSeconds = 0
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            elapsedSeconds++
         }
     }
-}
 
-@Composable
-private fun SurfaceSpinner() {
     Box(
         modifier = Modifier
-            .size(56.dp)
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(18.dp)),
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f)),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(26.dp),
-            strokeWidth = 3.dp,
-            color = MaterialTheme.colorScheme.primary
-        )
+        Card(
+            modifier = Modifier.padding(horizontal = 40.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(36.dp),
+                    strokeWidth = 3.5.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = title ?: "読み込み中…",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (elapsedSeconds >= 3) {
+                    Text(
+                        text = "${elapsedSeconds}秒経過",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (onCancel != null) {
+                    androidx.compose.material3.TextButton(onClick = onCancel) {
+                        Text("キャンセル", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -4,12 +4,6 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.Shader
 import android.widget.RemoteViews
 import com.example.ailearning.R
 import com.example.ailearning.domain.model.Question
@@ -60,7 +54,16 @@ object WidgetRenderer {
         applyNextButton(context, views, colors, widgetId, config, state)
         applyOpenAppClick(context, views, widgetId)
 
-        manager.updateAppWidget(widgetId, views)
+        try {
+            manager.updateAppWidget(widgetId, views)
+        } catch (e: Exception) {
+            // 最悪でも空白を避け、既定レイアウトの最低限の表示に戻す
+            runCatching {
+                val fallback = RemoteViews(context.packageName, R.layout.widget_quiz)
+                fallback.setTextViewText(R.id.tv_question, "ウィジェットの更新に失敗しました\nアプリを開いて再試行してください")
+                manager.updateAppWidget(widgetId, fallback)
+            }
+        }
     }
 
     /** 未設定・未構成のウィジェット用のプレースホルダを描く。 */
@@ -218,6 +221,11 @@ object WidgetRenderer {
 
     // ------------------------------------------------------------- background
 
+    /**
+     * 背景はビットマップを使わず、小さなシェイプdrawable + setColorFilter で着色する。
+     * 大きなBitmapをRemoteViewsに載せると Binder 転送上限を超え
+     * 「ウィジェットを読み込めません」の原因になるため。
+     */
     private fun applyBackground(
         context: Context,
         manager: AppWidgetManager,
@@ -225,44 +233,11 @@ object WidgetRenderer {
         views: RemoteViews,
         colors: WidgetColors
     ) {
-        views.setImageViewBitmap(R.id.widget_background, createBackgroundBitmap(context, manager, widgetId, colors))
-    }
-
-    private fun createBackgroundBitmap(
-        context: Context,
-        manager: AppWidgetManager,
-        widgetId: Int,
-        colors: WidgetColors
-    ): Bitmap {
-        val density = context.resources.displayMetrics.density
-        val options = manager.getAppWidgetOptions(widgetId)
-        val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 180)
-        val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 180)
-
-        var widthPx = (widthDp * density).toInt().coerceAtLeast((100 * density).toInt())
-        var heightPx = (heightDp * density).toInt().coerceAtLeast((100 * density).toInt())
-        // 極端に大きなウィジェットでのメモリ暴涨を防ぐ
-        val maxSide = 1440
-        if (widthPx > maxSide || heightPx > maxSide) {
-            val scale = maxSide.toFloat() / maxOf(widthPx, heightPx)
-            widthPx = (widthPx * scale).toInt()
-            heightPx = (heightPx * scale).toInt()
-        }
-
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        val radius = 24f * density
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                0f, 0f, 0f, heightPx.toFloat(),
-                colors.background,
-                colors.backgroundGradientEnd,
-                Shader.TileMode.CLAMP
-            )
-        }
-        canvas.drawRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), radius, radius, paint)
-        return bitmap
+        // ベース: 背景の下端色。上にグラデーションオーバーレイを重ねて上端色へ
+        views.setImageViewResource(R.id.widget_bg_base, R.drawable.widget_bg_card)
+        views.setInt(R.id.widget_bg_base, "setColorFilter", colors.backgroundGradientEnd)
+        views.setImageViewResource(R.id.widget_bg_overlay, R.drawable.widget_bg_card_gradient)
+        views.setInt(R.id.widget_bg_overlay, "setColorFilter", colors.background)
     }
 
     // ----------------------------------------------------------- intents

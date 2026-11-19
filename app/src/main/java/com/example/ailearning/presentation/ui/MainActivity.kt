@@ -192,7 +192,8 @@ class MainActivity : ComponentActivity() {
                                 StatisticsScreen(
                                     viewModel = statisticsViewModel,
                                     learningSetViewModel = learningSetViewModel,
-                                    initialSetId = entry.arguments?.getString("setId")
+                                    initialSetId = entry.arguments?.getString("setId"),
+                                    onCreateSetClick = { navController.navigate("create") }
                                 )
                             }
 

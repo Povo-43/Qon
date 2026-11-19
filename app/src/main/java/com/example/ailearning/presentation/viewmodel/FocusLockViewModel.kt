@@ -145,6 +145,16 @@ class FocusLockViewModel : ViewModel() {
         }
     }
 
+    /** 問題を今すぐ強制生成する（バックグラウンドでAI問題を生成） */
+    fun forceGenerateQuestions(setId: String) {
+        viewModelScope.launch {
+            AppContainer.appContext.let { ctx ->
+                com.example.ailearning.presentation.work.QuestionPrefetchScheduler
+                    .requestPrefetch(ctx, setId, force = true)
+            }
+        }
+    }
+
     /** ゲートの問題源となる学習セット。空文字は「自動」 */
     fun selectLearningSet(setId: String) {
         prefs.setFocusLearningSetId(setId)

@@ -64,4 +64,17 @@ class AnswerHistoryRepositoryImpl @Inject constructor(
             DailyStatRow(date = it.date, total = it.total, correct = it.correct, avgTime = it.avgTime, studyTime = it.studyTime)
         }
     )
+
+    // ---- 全セット横断分野別統計（v1.6.10）----
+    override suspend fun getCategoryStatsAll(startTime: Long) = Result.success(
+        dao.getCategoryStatsAll(startTime).map {
+            com.example.ailearning.domain.model.CategoryStatistics(
+                category = it.category,
+                total = it.total,
+                correct = it.correct,
+                accuracy = if (it.total > 0) it.correct.toDouble() / it.total else 0.0,
+                avgResponseTimeMs = it.avgTime
+            )
+        }
+    )
 }

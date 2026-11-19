@@ -502,7 +502,7 @@ fun StatisticsScreen(
                                 Text("統計エクスポート", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                             Text(
-                                "全解答履歴を CSV 形式でエクスポートし、PC やメールで保存・共有できます。",
+                                "全解答履歴、または分野別の集計を CSV 形式でエクスポートし、PC やメールで保存・共有できます。",
                                 fontSize = 11.5.sp,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
                                 lineHeight = 17.sp
@@ -522,7 +522,18 @@ fun StatisticsScreen(
                                     modifier = Modifier.fillMaxWidth().height(46.dp),
                                     shape = RoundedCornerShape(14.dp)
                                 ) {
-                                    Text("CSV でエクスポートして共有", fontWeight = FontWeight.Bold)
+                                    Text("全解答を CSV で共有", fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = { viewModel.exportAndShareByCategory(context) },
+                                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                ) {
+                                    Text("分野別を CSV で共有", fontWeight = FontWeight.Bold)
                                 }
 
                                 // エクスポート完了後、即座に共有メニューを開く

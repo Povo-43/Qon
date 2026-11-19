@@ -32,6 +32,7 @@ class StatisticsViewModel : ViewModel() {
     private val getLatestAnalysisUseCase = AppContainer.getLatestAnalysisUseCase
     private val getGlobalStatisticsUseCase = AppContainer.getGlobalStatisticsUseCase
     private val exportStatisticsUseCase = AppContainer.exportStatisticsUseCase
+    private val exportStatisticsByCategoryUseCase = AppContainer.exportStatisticsByCategoryUseCase
     
     private val _overallStats = MutableStateFlow<OverallStatistics?>(null)
     val overallStats: StateFlow<OverallStatistics?> = _overallStats
@@ -134,6 +135,33 @@ class StatisticsViewModel : ViewModel() {
             _exportContentUri.value = null
 
             val result = exportStatisticsUseCase()
+            if (result.isSuccess) {
+                val outFile = result.getOrNull()
+                if (outFile != null) {
+                    val fileAuthority = "${context.packageName}.fileprovider"
+                    val contentUri = runCatching {
+                        androidx.core.content.FileProvider.getUriForFile(context, fileAuthority, outFile)
+                    }.getOrNull()
+                    _exportContentUri.value = contentUri
+                } else {
+                    _error.value = "エクスポートに失敗しました"
+                }
+            } else {
+                _error.value = result.exceptionOrNull()?.message ?: "エクスポートに失敗しました"
+            }
+
+            _isExporting.value = false
+        }
+    }
+    
+    /** 分野別統計をエクスポートして共有メニューを開く */
+    fun exportAndShareByCategory(context: android.content.Context) {
+        viewModelScope.launch {
+            _isExporting.value = true
+            _error.value = null
+            _exportContentUri.value = null
+
+            val result = exportStatisticsByCategoryUseCase()
             if (result.isSuccess) {
                 val outFile = result.getOrNull()
                 if (outFile != null) {

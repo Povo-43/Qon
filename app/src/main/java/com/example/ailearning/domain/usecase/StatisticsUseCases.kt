@@ -265,6 +265,40 @@ class ExportStatisticsUseCase @Inject constructor(
     }
 }
 
+/**
+ * 分野別統計を CSV 形式でエクスポートする（v1.6.10）。
+ * 全セット横断で、分野ごとに解答数・正解数・正答率・平均回答時間を出力する。
+ */
+class ExportStatisticsByCategoryUseCase @Inject constructor(
+    private val context: android.content.Context,
+    private val historyRepository: AnswerHistoryRepository
+) {
+    operator suspend fun invoke(): Result<java.io.File> {
+        return try {
+            val startTime = 0L
+            val stats = historyRepository.getCategoryStatsAll(startTime).getOrElse { emptyList() }
+
+            val csv = buildString {
+                appendLine("category,total,correct,accuracy,avgResponseTimeMs")
+                for (s in stats) {
+                    append("${s.category},")
+                    append("${s.total},")
+                    append("${s.correct},")
+                    append("${(s.accuracy * 100).toInt()}%,")
+                    appendLine("${s.avgResponseTimeMs}")
+                }
+            }
+
+            val file = java.io.File(context.cacheDir, "qon_statistics_by_category_${System.currentTimeMillis()}.csv")
+            file.writeText(csv)
+
+            Result.success(file)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
 private const val SOURCE_APP = "app"
 private const val SOURCE_WIDGET = "widget"
 private const val SOURCE_FOCUS_LOCK = "focus_lock"

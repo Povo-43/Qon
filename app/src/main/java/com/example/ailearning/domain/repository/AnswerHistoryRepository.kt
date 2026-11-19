@@ -27,6 +27,9 @@ interface AnswerHistoryRepository {
     suspend fun getCountBySource(source: String): Result<SourceCount>
     suspend fun getAllByDateRange(startTime: Long, endTime: Long): Result<List<AnswerHistory>>
     suspend fun getDailyStatsAll(): Result<List<DailyStatRow>>
+
+    // ---- 全セット横断分野別統計（v1.6.10）----
+    suspend fun getCategoryStatsAll(startTime: Long): Result<List<CategoryStatistics>>
 }
 
 /** 全セット横断のソース別統計 */

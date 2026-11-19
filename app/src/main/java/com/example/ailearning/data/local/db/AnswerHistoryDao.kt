@@ -118,6 +118,21 @@ interface AnswerHistoryDao {
     """)
     suspend fun getCategoryStats(learningSetId: String, startTime: Long): List<CategoryStat>
 
+    // ---- 全セット横断分野別統計（v1.6.10）----
+
+    @Query("""
+        SELECT q.category as category,
+               COUNT(ah.id) as total,
+               SUM(CASE WHEN ah.isCorrect THEN 1 ELSE 0 END) as correct,
+               AVG(ah.responseTimeMs) as avgTime
+        FROM answer_histories ah
+        JOIN questions q ON ah.questionId = q.id
+        WHERE ah.answeredAt >= :startTime
+        GROUP BY q.category
+        ORDER BY total DESC
+    """)
+    suspend fun getCategoryStatsAll(startTime: Long): List<CategoryStat>
+
     @Query("""
         SELECT q.difficulty as difficulty,
                COUNT(ah.id) as total,

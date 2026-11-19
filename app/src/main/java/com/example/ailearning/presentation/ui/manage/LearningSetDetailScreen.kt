@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Shuffle
@@ -33,7 +34,8 @@ fun LearningSetDetailScreen(
     learningSetId: String,
     onBack: () -> Unit,
     onLearnClick: (String, String) -> Unit,
-    onStatsClick: (String) -> Unit
+    onStatsClick: (String) -> Unit,
+    onEditClick: (String) -> Unit
 ) {
     val learningSets by viewModel.learningSets.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -136,6 +138,16 @@ fun LearningSetDetailScreen(
                     Icon(Icons.Rounded.BarChart, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("このセットの統計を見る", fontWeight = FontWeight.SemiBold)
+                }
+
+                OutlinedButton(
+                    onClick = { onEditClick(learningSetId) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("このセットの内容を編集", fontWeight = FontWeight.SemiBold)
                 }
 
                 TextButton(

@@ -13,20 +13,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.example.ailearning.domain.model.LearningSet
 import com.example.ailearning.presentation.ui.components.AppTopBar
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
 
 @Composable
 fun CreateLearningSetScreen(
     viewModel: LearningSetViewModel,
+    learningSet: LearningSet? = null,
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var unit by remember { mutableStateOf("") }
-    var scope by remember { mutableStateOf("") }
+    val isEdit = learningSet != null
+    val initialName = if (isEdit) learningSet!!.name else ""
+    val initialSubject = if (isEdit) learningSet!!.subject else ""
+    val initialCategory = if (isEdit) learningSet!!.category else ""
+    val initialUnit = if (isEdit) learningSet!!.unit else ""
+    val initialScope = if (isEdit) learningSet!!.scope else ""
+    var name by remember { mutableStateOf(initialName) }
+    var subject by remember { mutableStateOf(initialSubject) }
+    var category by remember { mutableStateOf(initialCategory) }
+    var unit by remember { mutableStateOf(initialUnit) }
+    var scope by remember { mutableStateOf(initialScope) }
     var isSaving by remember { mutableStateOf(false) }
 
     val error by viewModel.error.collectAsState()
@@ -38,7 +46,7 @@ fun CreateLearningSetScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             AppTopBar(
-                title = "新しい学習セット",
+                title = if (isEdit) "学習セットを編集" else "新しい学習セット",
                 onBack = onCancel
             )
         },
@@ -53,9 +61,22 @@ fun CreateLearningSetScreen(
                         if (isSaving) return@Button
                         isSaving = true
                         coroutineScope.launch {
-                            val result = viewModel.createLearningSet(name, subject, category, unit, scope)
+                            if (isEdit) {
+                                val set = learningSet ?: return@launch
+                                val updated = set.copy(
+                                    name = name,
+                                    subject = subject,
+                                    category = category,
+                                    unit = unit,
+                                    scope = scope
+                                )
+                                viewModel.updateLearningSet(updated)
+                            } else {
+                                val result = viewModel.createLearningSet(name, subject, category, unit, scope)
+                                if (result.isSuccess) onSave()
+                            }
                             isSaving = false
-                            if (result.isSuccess) onSave()
+                            if (!isEdit) onSave()
                         }
                     },
                     enabled = canSave,
@@ -72,7 +93,11 @@ fun CreateLearningSetScreen(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Text("学習セットを作成", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (isEdit) "内容を更新" else "学習セットを作成",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

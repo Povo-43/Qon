@@ -152,7 +152,24 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onStatsClick = { id ->
                                         navController.navigate("stats?setId=${Uri.encode(id)}")
+                                    },
+                                    onEditClick = { id ->
+                                        navController.navigate("edit/${Uri.encode(id)}")
                                     }
+                                )
+                            }
+
+                            composable(
+                                route = "edit/{setId}",
+                                arguments = listOf(navArgument("setId") { type = NavType.StringType })
+                            ) { entry ->
+                                val setId = entry.arguments?.getString("setId").orEmpty()
+                                val set = learningSetViewModel.findById(setId)
+                                CreateLearningSetScreen(
+                                    viewModel = learningSetViewModel,
+                                    learningSet = set,
+                                    onSave = { navController.popBackStack() },
+                                    onCancel = { navController.popBackStack() }
                                 )
                             }
 

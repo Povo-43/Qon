@@ -1,8 +1,6 @@
 package com.example.ailearning.presentation.viewmodel
 
 import android.content.Intent
-import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ailearning.domain.model.AiAnalysis
@@ -55,10 +53,12 @@ class StatisticsViewModel : ViewModel() {
     val globalStats: StateFlow<GlobalStatistics?> = _globalStats
     
     // ---- エクスポート----
-    private val _exportUri = MutableStateFlow<Uri?>(null)
-    val exportUri: StateFlow<Uri?> = _exportUri
     private val _isExporting = MutableStateFlow(false)
     val isExporting: StateFlow<Boolean> = _isExporting
+
+    /** エクスポート後の共有用 content Uri（設定されると UI が共有メニューを開く） */
+    private val _exportContentUri = MutableStateFlow<android.net.Uri?>(null)
+    val exportContentUri: StateFlow<android.net.Uri?> = _exportContentUri
     
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -126,39 +126,30 @@ class StatisticsViewModel : ViewModel() {
         }
     }
     
-    /** 統計を CSV エクスポートし、共有用 Uri を発行する */
-    fun exportStatistics() {
+    /** エクスポートして共有メニューを開く */
+    fun exportAndShare(context: android.content.Context) {
         viewModelScope.launch {
             _isExporting.value = true
             _error.value = null
-            
+            _exportContentUri.value = null
+
             val result = exportStatisticsUseCase()
             if (result.isSuccess) {
-                _exportUri.value = result.getOrNull()
+                val outFile = result.getOrNull()
+                if (outFile != null) {
+                    val fileAuthority = "${context.packageName}.fileprovider"
+                    val contentUri = runCatching {
+                        androidx.core.content.FileProvider.getUriForFile(context, fileAuthority, outFile)
+                    }.getOrNull()
+                    _exportContentUri.value = contentUri
+                } else {
+                    _error.value = "エクスポートに失敗しました"
+                }
             } else {
                 _error.value = result.exceptionOrNull()?.message ?: "エクスポートに失敗しました"
             }
-            
+
             _isExporting.value = false
-        }
-    }
-    
-    /** エクスポートファイルを他アプリで共有するインテントを発行する */
-    fun shareExport(context: android.content.Context): Intent? {
-        val uri = _exportUri.value ?: return null
-        val fileAuthority = "${context.packageName}.fileprovider"
-        val contentUri = try {
-            FileProvider.getUriForFile(context, fileAuthority, java.io.File(uri.path))
-        } catch (e: Exception) {
-            uri
-        }
-        
-        return Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
-            putExtra(Intent.EXTRA_STREAM, contentUri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET)
-            putExtra(Intent.EXTRA_SUBJECT, "Qon 統計エクスポート")
-            putExtra(Intent.EXTRA_TEXT, "Qon の学習統計をエクスポートしました。")
         }
     }
     

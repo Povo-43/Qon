@@ -227,13 +227,14 @@ class GetGlobalStatisticsUseCase @Inject constructor(
 
 /**
  * 統計を CSV 形式でエクスポートする（v1.6.6）。
- * キャッシュディレクトリに保存し、ファイルの Uri を返す。
+ * キャッシュディレクトリに CSV ファイルを保存し、その File を返す。
+ * 共有は ViewModel 側で FileProvider を経由して content Uri 化して行う。
  */
 class ExportStatisticsUseCase @Inject constructor(
     private val context: android.content.Context,
     private val historyRepository: AnswerHistoryRepository
 ) {
-    operator suspend fun invoke(): Result<android.net.Uri> {
+    operator suspend fun invoke(): Result<java.io.File> {
         return try {
             val startTime = 0L
             val endTime = System.currentTimeMillis()
@@ -257,8 +258,7 @@ class ExportStatisticsUseCase @Inject constructor(
             val file = java.io.File(context.cacheDir, "qon_statistics_${System.currentTimeMillis()}.csv")
             file.writeText(csv)
 
-            val uri = android.net.Uri.fromFile(file)
-            Result.success(uri)
+            Result.success(file)
         } catch (e: Exception) {
             Result.failure(e)
         }

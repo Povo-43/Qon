@@ -51,7 +51,7 @@ fun StatisticsScreen(
     val trendData by viewModel.trendData.collectAsState()
     val aiAnalysis by viewModel.aiAnalysis.collectAsState()
     val globalStats by viewModel.globalStats.collectAsState()
-    val exportUri by viewModel.exportUri.collectAsState()
+    val exportContentUri by viewModel.exportContentUri.collectAsState()
     val isExporting by viewModel.isExporting.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
@@ -464,29 +464,30 @@ fun StatisticsScreen(
                                     Text("エクスポート中…", fontSize = 12.sp)
                                 }
                             } else {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { viewModel.exportStatistics() },
-                                        modifier = Modifier.fillMaxWidth().height(46.dp),
-                                        shape = RoundedCornerShape(14.dp)
-                                    ) {
-                                        Text("CSV でエクスポート", fontWeight = FontWeight.Bold)
-                                    }
-                                    exportUri?.let { uri ->
-                                        val context = LocalContext.current
-                                        TextButton(
-                                            onClick = {
-                                                val intent = viewModel.shareExport(context)
-                                                if (intent != null) {
-                                                    context.startActivity(
-                                                        Intent.createChooser(intent, "統計を共有")
-                                                    )
-                                                }
-                                            },
-                                            modifier = Modifier.height(46.dp)
-                                        ) {
-                                            Text("共有", fontWeight = FontWeight.Bold)
-                                        }
+                                val context = LocalContext.current
+                                Button(
+                                    onClick = { viewModel.exportAndShare(context) },
+                                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Text("CSV でエクスポートして共有", fontWeight = FontWeight.Bold)
+                                }
+
+                                // エクスポート完了後、即座に共有メニューを開く
+                                LaunchedEffect(exportContentUri) {
+                                    exportContentUri?.let { uri ->
+                                        context.startActivity(
+                                            Intent.createChooser(
+                                                Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/csv"
+                                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    putExtra(Intent.EXTRA_SUBJECT, "Qon 統計エクスポート")
+                                                    putExtra(Intent.EXTRA_TEXT, "Qon の学習統計をエクスポートしました。")
+                                                },
+                                                "統計を共有"
+                                            )
+                                        )
                                     }
                                 }
                             }

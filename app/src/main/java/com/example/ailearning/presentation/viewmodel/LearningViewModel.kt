@@ -6,6 +6,8 @@ import com.example.ailearning.domain.model.AnswerHistory
 import com.example.ailearning.domain.model.LearningSession
 import com.example.ailearning.domain.model.Question
 import com.example.ailearning.domain.usecase.GenerateQuestionsUseCase
+import com.example.ailearning.domain.usecase.GetAnsweredQuestionIdsBySessionUseCase
+import com.example.ailearning.domain.usecase.GetAnsweredQuestionIdsByLearningSetUseCase
 import com.example.ailearning.domain.usecase.GetQuestionsByCategoryUseCase
 import com.example.ailearning.domain.usecase.GetQuestionsByDifficultyUseCase
 import com.example.ailearning.domain.usecase.GetRandomQuestionsUseCase
@@ -32,6 +34,8 @@ class LearningViewModel : ViewModel() {
     private val startSessionUseCase = AppContainer.startLearningSessionUseCase
     private val recordAnswerUseCase = AppContainer.recordAnswerUseCase
     private val endSessionUseCase = AppContainer.endSessionUseCase
+    private val getAnsweredQuestionIdsBySessionUseCase = AppContainer.getAnsweredQuestionIdsBySessionUseCase
+    private val getAnsweredQuestionIdsByLearningSetUseCase = AppContainer.getAnsweredQuestionIdsByLearningSetUseCase
     
     // State
     private val _questions = MutableStateFlow<List<Question>>(emptyList())
@@ -73,6 +77,12 @@ class LearningViewModel : ViewModel() {
 
     private var learningJob: Job? = null
     private var generatingJob: Job? = null
+
+    /** 過去含め回答済みの問題ID（AI生成の除外用） */
+    private var answeredQuestionIds = mutableSetOf<String>()
+
+    /** 今のセッションで回答済みの問題ID（出題除外用。過去分は重み付けで自動的に出にくくなる） */
+    private var sessionAnsweredIds = mutableSetOf<String>()
     
     val currentQuestionNumber: Int
         get() = _currentQuestionIndex.value + 1
@@ -104,6 +114,8 @@ class LearningViewModel : ViewModel() {
         _isLoading.value = true
         _error.value = null
         _sessionComplete.value = false
+        answeredQuestionIds.clear()
+        sessionAnsweredIds.clear()
 
         val sessionResult = startSessionUseCase(learningSetId, mode)
         if (sessionResult.isFailure) {
@@ -111,32 +123,42 @@ class LearningViewModel : ViewModel() {
             return
         }
 
-        _session.value = sessionResult.getOrNull()
+        val session = sessionResult.getOrNull() ?: return
+        _session.value = session
+
+        // 過去のセッションで回答済みの問題IDを取得（AI生成時に似た問題を出させないための除外用）
+        val excludeIdsResult = getAnsweredQuestionIdsByLearningSetUseCase(learningSetId)
+        val excludeIds = if (excludeIdsResult.isSuccess) excludeIdsResult.getOrNull() ?: emptyList() else emptyList()
+        answeredQuestionIds.addAll(excludeIds)
+
+        // 出題時の除外は「今のセッションで回答済み」だけ。過去に答えた問題は
+        // 重み付け（未回答優先・正答率の高い問題は出にくい）で自然に後回しになる。
+        val sessionExclude = sessionAnsweredIds.toList()
 
         var deferGeneration = false
         val questionsResult = when (mode) {
             "continuous" -> {
                 // 保存済みの問題があれば即座に開始し、新しい問題は裏で生成する
-                val stored = getRandomQuestionsUseCase(learningSetId, count).getOrElse { emptyList() }
+                val stored = getRandomQuestionsUseCase(learningSetId, count, sessionExclude).getOrElse { emptyList() }
                 if (stored.isNotEmpty()) {
                     deferGeneration = true
                     Result.success(stored)
                 } else {
-                    generateWithTimeout(learningSetId, count)
+                    generateWithTimeout(learningSetId, count, excludeIds)
                 }
             }
-            "review" -> getWeakQuestionsUseCase(learningSetId, count)
-            "random" -> getRandomQuestionsUseCase(learningSetId, count)
+            "review" -> getWeakQuestionsUseCase(learningSetId, count, sessionExclude)
+            "random" -> getRandomQuestionsUseCase(learningSetId, count, sessionExclude)
             "unit" -> {
                 if (currentCategory != null) {
-                    getQuestionsByCategoryUseCase(learningSetId, currentCategory!!, count)
+                    getQuestionsByCategoryUseCase(learningSetId, currentCategory!!, count, sessionExclude)
                 } else if (currentDifficulty != null) {
-                    getQuestionsByDifficultyUseCase(learningSetId, currentDifficulty!!, count)
+                    getQuestionsByDifficultyUseCase(learningSetId, currentDifficulty!!, count, sessionExclude)
                 } else {
-                    getRandomQuestionsUseCase(learningSetId, count)
+                    getRandomQuestionsUseCase(learningSetId, count, sessionExclude)
                 }
             }
-            else -> getRandomQuestionsUseCase(learningSetId, count)
+            else -> getRandomQuestionsUseCase(learningSetId, count, sessionExclude)
         }
 
         if (questionsResult.isSuccess) {
@@ -156,7 +178,7 @@ class LearningViewModel : ViewModel() {
                 viewModelScope.launch {
                     _isGenerating.value = true
                     try {
-                        val result = generateWithTimeout(learningSetId, count)
+                        val result = generateWithTimeout(learningSetId, count, answeredQuestionIds.toList())
                         // 生成中に別セッションへ切り替わっていたら反映しない
                         if (token == sessionToken && result.isSuccess) {
                             val fresh = result.getOrDefault(emptyList())
@@ -177,9 +199,9 @@ class LearningViewModel : ViewModel() {
     }
 
     /** 生成を最大 {@link GENERATION_TIMEOUT_MS} まで待ち、超過したらタイムアウト扱いにする。 */
-    private suspend fun generateWithTimeout(learningSetId: String, count: Int): Result<List<Question>> {
+    private suspend fun generateWithTimeout(learningSetId: String, count: Int, excludeIds: List<String> = emptyList()): Result<List<Question>> {
         val result = withTimeoutOrNull(GENERATION_TIMEOUT_MS) {
-            generateQuestionsUseCase(learningSetId, count)
+            generateQuestionsUseCase(learningSetId, count, excludeIds)
         }
         return result ?: Result.failure(
             Exception(
@@ -205,7 +227,7 @@ class LearningViewModel : ViewModel() {
             _isGenerating.value = true
             _error.value = null
             try {
-                val result = generateWithTimeout(learningSetId, count)
+                val result = generateWithTimeout(learningSetId, count, answeredQuestionIds.toList())
                 if (result.isSuccess) {
                     val newQuestions = result.getOrNull() ?: emptyList()
                     _questions.value = _questions.value + newQuestions
@@ -246,6 +268,9 @@ class LearningViewModel : ViewModel() {
                 val history = result.getOrNull()!!
                 _lastAnswer.value = history
                 _showResult.value = true
+                // 回答済み問題IDに追加（同じ問題が再度出ないようにする）
+                answeredQuestionIds.add(question.id)
+                sessionAnsweredIds.add(question.id)
                 // 画面上のセッション集計も即時更新する
                 _session.value = _session.value?.let { current ->
                     current.copy(
@@ -301,6 +326,8 @@ class LearningViewModel : ViewModel() {
         _lastAnswer.value = null
         _sessionComplete.value = false
         _error.value = null
+        answeredQuestionIds.clear()
+        sessionAnsweredIds.clear()
     }
 
     companion object {

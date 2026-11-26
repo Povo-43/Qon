@@ -28,9 +28,12 @@ data class FocusGateQuestion(
  *
  * - 設定で学習セットが指定されていればそこから
  * - 未指定なら問題が存在するセットから自動選択
- * - excludeIds（表示済みID）はDBから多めに引いてから除外し、
- *   同じ問題が連続・再表示されないようにする
- * - どうしても新規が無い（問題数が少ない）場合のみランダムに再利用する
+ * - 回答統計に基づく重み付けで選ぶ:
+ *   - 答えたことのない問題を最優先
+ *   - 誤答の多い問題はそれなりに出す（復習価値）
+ *   - 毎回正解している問題はほとんど出さない
+ * - 加えて、最近出題した問題（recent）とこのゲート内の表示済みIDは除外する
+ * - どうしても新規が無い（問題数が少ない）場合のみ既出の問題を再利用する
  */
 class GetFocusGateQuestionUseCase @Inject constructor(
     private val questionRepository: QuestionRepository,
@@ -42,7 +45,7 @@ class GetFocusGateQuestionUseCase @Inject constructor(
             ?: findSetIdWithQuestions()
             ?: return FocusGateQuestion(null, null, poolExhausted = false)
 
-        val candidates = questionRepository.getRandomQuestions(setId, FETCH_LIMIT)
+        val candidates = questionRepository.getQuestionsWithStats(setId, FETCH_LIMIT)
             .getOrDefault(emptyList())
         if (candidates.isEmpty()) return FocusGateQuestion(null, setId, poolExhausted = false)
 
@@ -56,14 +59,14 @@ class GetFocusGateQuestionUseCase @Inject constructor(
             // i=0 は最近maxRecent件（=すべて）を除外、i=maxRecent は0件除外（＝このゲート内のみ）
             val recentExclude = recent.takeLast(maxRecent - i).toSet()
             val combined = excludeIds + recentExclude
-            val picked = FocusLockPolicy.pickNext(candidates, combined) { it.id }
+            val picked = QuestionSelectionPolicy.selectOne(candidates, combined)
             if (picked != null) {
                 return FocusGateQuestion(picked, setId, poolExhausted = i > 0)
             }
         }
 
         // ここには到達しないはずだが、念のためランダム（=問題が極端に少ない）
-        return FocusGateQuestion(candidates.random(), setId, poolExhausted = true)
+        return FocusGateQuestion(candidates.random().question, setId, poolExhausted = true)
     }
 
     private suspend fun findSetIdWithQuestions(): String? {
@@ -78,7 +81,7 @@ class GetFocusGateQuestionUseCase @Inject constructor(
 
     companion object {
         /** 1回の取得で引く問題数。多めに引いて除外後の選択肢を確保する */
-        private const val FETCH_LIMIT = 30
+        private const val FETCH_LIMIT = 100
     }
 }
 

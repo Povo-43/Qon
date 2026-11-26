@@ -18,6 +18,8 @@ class AnswerHistoryRepositoryImpl @Inject constructor(
     override suspend fun getRecentByLearningSet(learningSetId: String, limit: Int) = Result.success(dao.getRecentByLearningSet(learningSetId, limit))
     override suspend fun getByQuestionId(questionId: String) = Result.success(dao.getByQuestionId(questionId))
     override suspend fun getBySessionId(sessionId: String) = Result.success(dao.getBySessionId(sessionId))
+    override suspend fun getAnsweredQuestionIdsBySession(sessionId: String) = Result.success(dao.getAnsweredQuestionIdsBySession(sessionId))
+    override suspend fun getAnsweredQuestionIdsByLearningSet(learningSetId: String) = Result.success(dao.getAnsweredQuestionIdsByLearningSet(learningSetId))
     override suspend fun getByDateRange(learningSetId: String, startTime: Long, endTime: Long) = Result.success(dao.getByDateRange(learningSetId, startTime, endTime))
     override suspend fun countByLearningSet(learningSetId: String) = Result.success(dao.countByLearningSet(learningSetId))
     override suspend fun getAccuracyByLearningSet(learningSetId: String) = Result.success(dao.getAccuracyByLearningSet(learningSetId))

@@ -13,6 +13,10 @@ class GenerateQuestionsUseCase @Inject constructor(
     private val learningSetRepository: LearningSetRepository
 ) {
     operator suspend fun invoke(learningSetId: String, count: Int = 10): Result<List<Question>> {
+        return invoke(learningSetId, count, emptyList())
+    }
+    
+    operator suspend fun invoke(learningSetId: String, count: Int, excludeIds: List<String>): Result<List<Question>> {
         return try {
             val learningSetResult = learningSetRepository.getByIdOnce(learningSetId)
             if (learningSetResult.isFailure) return Result.failure(learningSetResult.exceptionOrNull() ?: Exception("Learning set not found"))
@@ -20,7 +24,8 @@ class GenerateQuestionsUseCase @Inject constructor(
             val learningSet = learningSetResult.getOrNull() ?: return Result.failure(Exception("Learning set not found"))
             
             val existingQuestions = questionRepository.getRecentQuestions(learningSetId, 50).getOrElse { emptyList() }
-            val excludeIds = existingQuestions.map { it.id }
+            val recentExcludeIds = existingQuestions.map { it.id }
+            val allExcludeIds = (recentExcludeIds + excludeIds).distinct()
             val previousQuestions = existingQuestions.take(20).map { q ->
                 com.example.ailearning.domain.model.QuestionSummary(q.questionText, q.category, q.difficulty)
             }
@@ -28,7 +33,7 @@ class GenerateQuestionsUseCase @Inject constructor(
             val request = GenerateQuestionsRequest(
                 learningSet = learningSet,
                 count = count,
-                excludeQuestionIds = excludeIds,
+                excludeQuestionIds = allExcludeIds,
                 previousQuestions = previousQuestions
             )
             
@@ -68,11 +73,36 @@ class GenerateQuestionsUseCase @Inject constructor(
     }
 }
 
+/**
+ * ランダム出題。単純なランダムではなく、回答統計に基づく重み付き選択を行う。
+ *
+ * - 未回答の問題を最優先で出す
+ * - 誤答の多い問題はそれなりに出る（復習価値があるため）
+ * - 毎回正解している問題はほとんど出ない
+ *
+ * @param excludeIds 除外する問題ID（セッション内で回答済みなど）。統計による重み付けは別途効くため、
+ *                    過去すべての回答済み問題を渡す必要はない。
+ */
 class GetRandomQuestionsUseCase @Inject constructor(
     private val repository: QuestionRepository
 ) {
     operator suspend fun invoke(learningSetId: String, limit: Int): Result<List<Question>> {
-        return repository.getRandomQuestions(learningSetId, limit)
+        return invoke(learningSetId, limit, emptyList())
+    }
+
+    operator suspend fun invoke(learningSetId: String, limit: Int, excludeIds: List<String>): Result<List<Question>> {
+        return try {
+            val candidates = repository.getQuestionsWithStats(learningSetId, FETCH_LIMIT)
+                .getOrElse { emptyList() }
+            Result.success(QuestionSelectionPolicy.select(candidates, limit, excludeIds.toSet()))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    companion object {
+        /** 候補として引く最大件数（ローカルDBなので十分な数を確保する） */
+        const val FETCH_LIMIT = 1000
     }
 }
 
@@ -82,6 +112,10 @@ class GetQuestionsByCategoryUseCase @Inject constructor(
     operator suspend fun invoke(learningSetId: String, category: String, limit: Int): Result<List<Question>> {
         return repository.getQuestionsByCategory(learningSetId, category, limit)
     }
+    
+    operator suspend fun invoke(learningSetId: String, category: String, limit: Int, excludeIds: List<String>): Result<List<Question>> {
+        return repository.getQuestionsByCategory(learningSetId, category, limit, excludeIds)
+    }
 }
 
 class GetQuestionsByDifficultyUseCase @Inject constructor(
@@ -90,6 +124,10 @@ class GetQuestionsByDifficultyUseCase @Inject constructor(
     operator suspend fun invoke(learningSetId: String, difficulty: Int, limit: Int): Result<List<Question>> {
         return repository.getQuestionsByDifficulty(learningSetId, difficulty, limit)
     }
+    
+    operator suspend fun invoke(learningSetId: String, difficulty: Int, limit: Int, excludeIds: List<String>): Result<List<Question>> {
+        return repository.getQuestionsByDifficulty(learningSetId, difficulty, limit, excludeIds)
+    }
 }
 
 class GetWeakQuestionsUseCase @Inject constructor(
@@ -97,6 +135,10 @@ class GetWeakQuestionsUseCase @Inject constructor(
 ) {
     operator suspend fun invoke(learningSetId: String, limit: Int): Result<List<Question>> {
         return repository.getWeakQuestions(learningSetId, limit)
+    }
+    
+    operator suspend fun invoke(learningSetId: String, limit: Int, excludeIds: List<String>): Result<List<Question>> {
+        return repository.getWeakQuestions(learningSetId, limit, excludeIds)
     }
 }
 

@@ -44,6 +44,7 @@ import com.example.ailearning.presentation.ui.home.HomeScreen
 import com.example.ailearning.presentation.ui.learn.LearnScreen
 import com.example.ailearning.presentation.ui.manage.CreateLearningSetScreen
 import com.example.ailearning.presentation.ui.manage.LearningSetDetailScreen
+import com.example.ailearning.presentation.ui.manage.QuestionListScreen
 import com.example.ailearning.presentation.ui.settings.FocusLockScreen
 import com.example.ailearning.presentation.ui.settings.SettingsScreen
 import com.example.ailearning.presentation.ui.statistics.StatisticsScreen
@@ -52,6 +53,7 @@ import com.example.ailearning.presentation.work.QuestionPrefetchScheduler
 import com.example.ailearning.presentation.viewmodel.FocusLockViewModel
 import com.example.ailearning.presentation.viewmodel.LearningSetViewModel
 import com.example.ailearning.presentation.viewmodel.LearningViewModel
+import com.example.ailearning.presentation.viewmodel.QuestionListViewModel
 import com.example.ailearning.presentation.viewmodel.SettingsViewModel
 import com.example.ailearning.presentation.viewmodel.StatisticsViewModel
 
@@ -67,6 +69,7 @@ class MainActivity : ComponentActivity() {
 
         val learningSetViewModel: LearningSetViewModel = ViewModelProvider(this)[LearningSetViewModel::class.java]
         val learningViewModel: LearningViewModel = ViewModelProvider(this)[LearningViewModel::class.java]
+        val questionListViewModel: QuestionListViewModel = ViewModelProvider(this)[QuestionListViewModel::class.java]
         val settingsViewModel: SettingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val statisticsViewModel: StatisticsViewModel = ViewModelProvider(this)[StatisticsViewModel::class.java]
         val focusLockViewModel: FocusLockViewModel = ViewModelProvider(this)[FocusLockViewModel::class.java]
@@ -150,6 +153,9 @@ class MainActivity : ComponentActivity() {
                                     onLearnClick = { id, mode ->
                                         navController.navigate("learn/${Uri.encode(id)}?mode=$mode")
                                     },
+                                    onQuestionsClick = { id ->
+                                        navController.navigate("questions/${Uri.encode(id)}")
+                                    },
                                     onStatsClick = { id ->
                                         navController.navigate("stats?setId=${Uri.encode(id)}")
                                     },
@@ -192,6 +198,21 @@ class MainActivity : ComponentActivity() {
                                     learningSetId = setId,
                                     learningSetName = setName,
                                     mode = mode,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+
+                            composable(
+                                route = "questions/{setId}",
+                                arguments = listOf(navArgument("setId") { type = NavType.StringType })
+                            ) { entry ->
+                                val setId = entry.arguments?.getString("setId").orEmpty()
+                                val sets by learningSetViewModel.learningSets.collectAsState()
+                                val setName = sets.firstOrNull { it.id == setId }?.name ?: ""
+                                QuestionListScreen(
+                                    viewModel = questionListViewModel,
+                                    learningSetId = setId,
+                                    learningSetName = setName,
                                     onBack = { navController.popBackStack() }
                                 )
                             }

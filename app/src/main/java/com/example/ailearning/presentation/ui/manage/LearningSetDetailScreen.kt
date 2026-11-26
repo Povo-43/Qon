@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ListAlt
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Shuffle
@@ -34,6 +35,7 @@ fun LearningSetDetailScreen(
     learningSetId: String,
     onBack: () -> Unit,
     onLearnClick: (String, String) -> Unit,
+    onQuestionsClick: (String) -> Unit,
     onStatsClick: (String) -> Unit,
     onEditClick: (String) -> Unit
 ) {
@@ -129,6 +131,16 @@ fun LearningSetDetailScreen(
                 )
 
                 Spacer(modifier = Modifier.height(2.dp))
+
+                OutlinedButton(
+                    onClick = { onQuestionsClick(learningSetId) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Rounded.ListAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("作成された問題一覧を見る", fontWeight = FontWeight.SemiBold)
+                }
 
                 FilledTonalButton(
                     onClick = { onStatsClick(learningSetId) },

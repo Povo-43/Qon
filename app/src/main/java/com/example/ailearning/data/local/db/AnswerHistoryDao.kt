@@ -47,6 +47,12 @@ interface AnswerHistoryDao {
     @Query("SELECT * FROM answer_histories WHERE sessionId = :sessionId ORDER BY answeredAt ASC")
     suspend fun getBySessionId(sessionId: String): List<AnswerHistory>
 
+    @Query("SELECT DISTINCT questionId FROM answer_histories WHERE sessionId = :sessionId")
+    suspend fun getAnsweredQuestionIdsBySession(sessionId: String): List<String>
+
+    @Query("SELECT DISTINCT questionId FROM answer_histories WHERE learningSetId = :learningSetId")
+    suspend fun getAnsweredQuestionIdsByLearningSet(learningSetId: String): List<String>
+
     @Query("SELECT * FROM answer_histories WHERE learningSetId = :learningSetId AND answeredAt >= :startTime AND answeredAt <= :endTime")
     suspend fun getByDateRange(learningSetId: String, startTime: Long, endTime: Long): List<AnswerHistory>
 

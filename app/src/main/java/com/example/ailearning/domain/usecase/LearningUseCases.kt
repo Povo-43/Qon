@@ -103,3 +103,27 @@ class GetSessionHistoryUseCase @Inject constructor(
         return historyRepository.getBySessionId(sessionId)
     }
 }
+
+class GetAnsweredQuestionIdsBySessionUseCase @Inject constructor(
+    private val historyRepository: AnswerHistoryRepository
+) {
+    operator suspend fun invoke(sessionId: String): Result<List<String>> {
+        return historyRepository.getAnsweredQuestionIdsBySession(sessionId)
+    }
+}
+
+class GetAnsweredQuestionIdsByLearningSetUseCase @Inject constructor(
+    private val historyRepository: AnswerHistoryRepository
+) {
+    operator suspend fun invoke(learningSetId: String): Result<List<String>> {
+        return historyRepository.getAnsweredQuestionIdsByLearningSet(learningSetId)
+    }
+}
+
+class GetAnsweredQuestionIdsByWidgetIdUseCase @Inject constructor(
+    private val historyRepository: AnswerHistoryRepository
+) {
+    operator suspend fun invoke(widgetId: String): Result<List<String>> {
+        return historyRepository.getAnsweredQuestionIdsBySession(widgetId)
+    }
+}

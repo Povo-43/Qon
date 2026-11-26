@@ -18,6 +18,10 @@ interface AnswerHistoryRepository {
     suspend fun getCategoryStats(learningSetId: String, startTime: Long): Result<List<CategoryStatistics>>
     suspend fun getDifficultyStats(learningSetId: String, startTime: Long): Result<List<DifficultyStatistics>>
 
+    // ---- 回答済み問題ID取得 ----
+    suspend fun getAnsweredQuestionIdsBySession(sessionId: String): Result<List<String>>
+    suspend fun getAnsweredQuestionIdsByLearningSet(learningSetId: String): Result<List<String>>
+
     // ---- 全セット横断統計（v1.6.6）----
     suspend fun countAll(): Result<Int>
     suspend fun getAccuracyAll(): Result<Double>

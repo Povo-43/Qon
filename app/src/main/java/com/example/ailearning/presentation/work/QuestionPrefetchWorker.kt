@@ -36,8 +36,18 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val targetSetId = inputData.getString(KEY_LEARNING_SET_ID)
         val force = inputData.getBoolean(KEY_FORCE, false)
+        val explicitCount = inputData.getInt(KEY_COUNT, 0)
 
-        val result = runCatching { prefetch(targetSetId, force) }
+        val result = runCatching {
+            if (explicitCount > 0 && targetSetId != null) {
+                // ユーザーが問題数を指定してバックグラウンド生成した場合。
+                // 閾値チェックを無視して、指定された問数をちょうど作る。
+                generateExactly(targetSetId, explicitCount)
+                1
+            } else {
+                prefetch(targetSetId, force)
+            }
+        }
 
         if (result.isFailure) {
             // 一時的なネットワーク・レート制限なら数回までリトライ
@@ -48,6 +58,18 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
             }
         }
         Result.success()
+    }
+
+    /** 指定された問数を生成する（MAX_GENERATE_COUNT ずつ分割）。 */
+    private suspend fun generateExactly(targetSetId: String, count: Int) {
+        val generate = AppContainer.generateQuestionsUseCase
+        var remaining = count
+        while (remaining > 0) {
+            val chunk = remaining.coerceAtMost(MAX_GENERATE_COUNT)
+            val result = generate(targetSetId, chunk)
+            if (result.isFailure) throw result.exceptionOrNull() ?: Exception("question generation failed")
+            remaining -= chunk
+        }
     }
 
     /** @return 生成を試みたセット数 */
@@ -89,6 +111,9 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
         const val KEY_LEARNING_SET_ID = "learning_set_id"
         const val KEY_FORCE = "force"
 
+        /** ユーザーが指定した生成問数（0 は未指定 = 閾値ベースの補充） */
+        const val KEY_COUNT = "count"
+
         /** 1回の生成で作る最大問数 */
         const val MAX_GENERATE_COUNT = 20
 
@@ -128,6 +153,28 @@ object QuestionPrefetchScheduler {
         workManager(context).enqueueUniqueWork(UNIQUE_PREFIX + learningSetId, ExistingWorkPolicy.KEEP, request)
     }
 
+    /**
+     * ユーザーが問題数を指定してバックグラウンド生成を依頼する（問題一覧ページ用）。
+     * 既存の事前生成チェーンがあればその後ろに連結するので、
+     * observePreparing() が生成中の表示を自動でカバーする。
+     */
+    fun requestGeneration(context: Context, learningSetId: String, count: Int) {
+        val request = OneTimeWorkRequestBuilder<QuestionPrefetchWorker>()
+            .setInputData(
+                Data.Builder()
+                    .putString(QuestionPrefetchWorker.KEY_LEARNING_SET_ID, learningSetId)
+                    .putInt(QuestionPrefetchWorker.KEY_COUNT, count.coerceIn(1, 100))
+                    .build()
+            )
+            .setConstraints(constraints())
+            .build()
+        workManager(context).enqueueUniqueWork(
+            UNIQUE_PREFIX + learningSetId,
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            request
+        )
+    }
+
     /** 全セットの一括チェック（アプリ起動時）。実行中なら再登録しない。 */
     fun requestPrefetchAll(context: Context) {
         val request = OneTimeWorkRequestBuilder<QuestionPrefetchWorker>()
@@ -153,4 +200,21 @@ object QuestionPrefetchScheduler {
                         it.state == androidx.work.WorkInfo.State.RUNNING
                 }
             }
+
+    /** 生成の状態（問題一覧ページ用。失敗も検出できる）。 */
+    fun observeGenerationState(context: Context, learningSetId: String): kotlinx.coroutines.flow.Flow<GenerationState> =
+        workManager(context).getWorkInfosForUniqueWorkFlow(UNIQUE_PREFIX + learningSetId)
+            .map { infos ->
+                when {
+                    infos.any {
+                        it.state == androidx.work.WorkInfo.State.ENQUEUED ||
+                            it.state == androidx.work.WorkInfo.State.RUNNING
+                    } -> GenerationState.RUNNING
+                    infos.any { it.state == androidx.work.WorkInfo.State.FAILED } -> GenerationState.FAILED
+                    else -> GenerationState.IDLE
+                }
+            }
 }
+
+/** バックグラウンド生成の状態 */
+enum class GenerationState { IDLE, RUNNING, FAILED }

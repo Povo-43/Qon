@@ -75,6 +75,9 @@ object AppContainer {
     val recordAnswerUseCase: RecordAnswerUseCase get() = RecordAnswerUseCase(answerHistoryRepository, learningSessionRepository, questionRepository)
     val endSessionUseCase: EndLearningSessionUseCase get() = EndLearningSessionUseCase(learningSessionRepository)
     val getSessionHistoryUseCase: GetSessionHistoryUseCase get() = GetSessionHistoryUseCase(answerHistoryRepository)
+    val getAnsweredQuestionIdsBySessionUseCase: GetAnsweredQuestionIdsBySessionUseCase get() = GetAnsweredQuestionIdsBySessionUseCase(answerHistoryRepository)
+    val getAnsweredQuestionIdsByLearningSetUseCase: GetAnsweredQuestionIdsByLearningSetUseCase get() = GetAnsweredQuestionIdsByLearningSetUseCase(answerHistoryRepository)
+    val getAnsweredQuestionIdsByWidgetIdUseCase: GetAnsweredQuestionIdsByWidgetIdUseCase get() = GetAnsweredQuestionIdsByWidgetIdUseCase(answerHistoryRepository)
 
     // Use cases - LearningSet
     val createLearningSetUseCase: CreateLearningSetUseCase get() = CreateLearningSetUseCase(learningSetRepository)

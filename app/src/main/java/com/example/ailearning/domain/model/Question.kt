@@ -55,3 +55,21 @@ data class DuplicateCheck(
     val optionsHash: String = "",
     val similarityScore: Float = 0f
 )
+
+/**
+ * 問題と回答統計（正答率表示・出題選択用）。
+ *
+ * attempts は回答回数（スキップ含む）、correct は正解回数。
+ * attempts == 0 は「まだ一度も答えていない」問題。
+ */
+data class QuestionWithStats(
+    @Embedded val question: Question,
+    val attempts: Int = 0,
+    val correct: Int = 0
+) {
+    val isUnanswered: Boolean get() = attempts <= 0
+
+    /** 正答率（0.0..1.0）。未回答は null */
+    val accuracy: Double?
+        get() = if (attempts > 0) correct.toDouble() / attempts else null
+}

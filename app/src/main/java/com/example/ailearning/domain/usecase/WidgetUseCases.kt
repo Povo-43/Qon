@@ -8,6 +8,9 @@ import com.example.ailearning.domain.repository.WidgetConfigRepository
 import com.google.gson.Gson
 import javax.inject.Inject
 
+/** 候補として引く最大件数（ローカルDBなので十分な数を確保する） */
+private const val WIDGET_FETCH_LIMIT = 1000
+
 class UpdateWidgetCacheUseCase @Inject constructor(
     private val questionRepository: QuestionRepository,
     private val widgetConfigRepository: WidgetConfigRepository
@@ -19,7 +22,13 @@ class UpdateWidgetCacheUseCase @Inject constructor(
 
             val config = configResult.getOrNull() ?: return Result.failure(Exception("Widget config not found"))
 
-            val questions = questionRepository.getRandomQuestions(config.learningSetId, config.questionCount).getOrElse { emptyList() }
+            // 回答統計に基づく重み付き選択でキャッシュを更新する。
+            // （未回答優先・正答率の低い問題を多めに。全問題を既に回答済みでも
+            //   除外で空になることがなく、キャッシュが更新され続ける）
+            val candidates = questionRepository.getQuestionsWithStats(config.learningSetId, WIDGET_FETCH_LIMIT)
+                .getOrElse { emptyList() }
+            val questions = QuestionSelectionPolicy
+                .select(candidates, config.questionCount)
 
             if (questions.isNotEmpty()) {
                 val gson = Gson()
@@ -51,8 +60,10 @@ class GetWidgetQuestionUseCase @Inject constructor(
 
             val cachedIds = config.getCachedQuestionIdList()
             if (cachedIds.isEmpty()) {
-                return questionRepository.getRandomQuestions(config.learningSetId, 1)
-                    .map { it.firstOrNull() }
+                // 回答統計に基づく重み付き選択（未回答優先・毎回正解の問題は出にくい）
+                val candidates = questionRepository.getQuestionsWithStats(config.learningSetId, WIDGET_FETCH_LIMIT)
+                    .getOrElse { emptyList() }
+                return Result.success(QuestionSelectionPolicy.selectOne(candidates))
             }
 
             // currentIndex が範囲外なら先頭に戻す
@@ -79,7 +90,10 @@ class AdvanceWidgetQuestionUseCase @Inject constructor(
 
         val cachedIds = config.getCachedQuestionIdList()
         val nextQuestion: Question? = if (cachedIds.isEmpty()) {
-            questionRepository.getRandomQuestions(config.learningSetId, 1).getOrElse { emptyList() }.firstOrNull()
+            // 回答統計に基づく重み付き選択（未回答優先・毎回正解の問題は出にくい）
+            val candidates = questionRepository.getQuestionsWithStats(config.learningSetId, WIDGET_FETCH_LIMIT)
+                .getOrElse { emptyList() }
+            QuestionSelectionPolicy.selectOne(candidates)
         } else {
             val nextIndex = ((config.currentIndex + 1).mod(cachedIds.size))
             widgetConfigRepository.update(config.copy(currentIndex = nextIndex)).getOrThrow()
@@ -127,7 +141,10 @@ class ProcessWidgetAnswerUseCase @Inject constructor(
             val nextQuestion = if (currentIndex >= 0 && currentIndex + 1 < cachedIds.size) {
                 questionRepository.getById(cachedIds[currentIndex + 1]).getOrNull()
             } else {
-                questionRepository.getRandomQuestions(config.learningSetId, 1).getOrElse { emptyList() }.firstOrNull()
+                // 回答統計に基づく重み付き選択（未回答優先・毎回正解の問題は出にくい）
+                val candidates = questionRepository.getQuestionsWithStats(config.learningSetId, WIDGET_FETCH_LIMIT)
+                    .getOrElse { emptyList() }
+                QuestionSelectionPolicy.selectOne(candidates)
             }
             
             Result.success(WidgetAnswerResult(

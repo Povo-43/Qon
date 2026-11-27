@@ -25,34 +25,89 @@ class QuestionSelectionPolicyTest {
     private fun item(id: String, attempts: Int, correct: Int) =
         QuestionWithStats(question(id), attempts, correct)
 
-    // ---------------------------------------------------------- weightOf
+    // ---------------------------------------------------------- 未出優先（厳格）
 
     @Test
-    fun unansweredQuestionHasHighestWeight() {
-        assertEquals(QuestionSelectionPolicy.UNANSWERED_WEIGHT, QuestionSelectionPolicy.weightOf(0, 0), 1e-9)
-        assertEquals(QuestionSelectionPolicy.UNANSWERED_WEIGHT, QuestionSelectionPolicy.weightOf(-1, 0), 1e-9)
+    fun unansweredQuestionsAreAlwaysPickedBeforeAnsweredOnes() {
+        // 未回答が2問しかなくても、既答が何問あろうと必ず未回答が先に出る
+        val candidates = (1..100).map { item("answered$it", 10, 5) } +
+            listOf(item("new1", 0, 0), item("new2", 0, 0))
+        val result = QuestionSelectionPolicy.select(candidates, 2, random = Random(42))
+        val ids = result.map { it.id }.toSet()
+        assertEquals(setOf("new1", "new2"), ids)
     }
 
     @Test
-    fun alwaysCorrectQuestionHasLowestWeight() {
-        assertEquals(
-            QuestionSelectionPolicy.MASTERED_WEIGHT,
-            QuestionSelectionPolicy.weightOf(10, 10),
-            1e-9
+    fun answeredOnesOnlyAppearAfterUnansweredPoolIsExhausted() {
+        val candidates = listOf(item("new1", 0, 0), item("new2", 0, 0)) +
+            (1..20).map { item("answered$it", 4, 1) }
+        val result = QuestionSelectionPolicy.select(candidates, 10, random = Random(7))
+        val ids = result.map { it.id }
+        // 最初の2問は必ず未回答、残り8問は既答から
+        assertEquals(setOf("new1", "new2"), ids.take(2).toSet())
+        assertTrue(ids.drop(2).all { it.startsWith("answered") })
+        assertEquals(10, ids.size)
+    }
+
+    @Test
+    fun unansweredPicksAreRotatedRandomly() {
+        val candidates = (1..20).map { item("new$it", 0, 0) }
+        val a = QuestionSelectionPolicy.select(candidates, 5, random = Random(1))
+        val b = QuestionSelectionPolicy.select(candidates, 5, random = Random(2))
+        // シードが違えば並びも変わる（固定順ではない＝ランダムに回る）
+        assertTrue(a.map { it.id } != b.map { it.id })
+    }
+
+    // ---------------------------------------------------------- 既答の重み付け
+
+    @Test
+    fun strugglingQuestionsArePickedMoreOftenThanMasteredOnes() {
+        // 誤答率が高い問題は、毎回正解の問題より優先されて出る
+        val candidates = (1..10).map { item("wrong$it", 10, 0) } +
+            (11..20).map { item("mastered$it", 10, 10) }
+        val random = Random(42)
+        var wrongPicks = 0
+        val trials = 500
+        repeat(trials) {
+            val picked = QuestionSelectionPolicy.select(candidates, 1, random = random).first()
+            if (picked.id.startsWith("wrong")) wrongPicks++
+        }
+        assertTrue(
+            "struggling picked ${wrongPicks}/${trials}",
+            wrongPicks > trials * 0.7
         )
     }
 
     @Test
-    fun allWrongQuestionWeightsMoreThanAlwaysCorrect() {
-        val allWrong = QuestionSelectionPolicy.weightOf(5, 0)
-        val half = QuestionSelectionPolicy.weightOf(4, 2)
-        val allCorrect = QuestionSelectionPolicy.weightOf(5, 5)
-        assertTrue(allWrong > half)
-        assertTrue(half > allCorrect)
-        assertEquals(QuestionSelectionPolicy.STRUGGLING_WEIGHT, allWrong, 1e-9)
+    fun fewerAttemptedQuestionsArePreferredAmongEqualAccuracy() {
+        // 正答率が同じなら、解答数が少ない問題がより多く出る
+        val candidates = (1..10).map { item("fresh$it", attempts = 1, correct = 0) } +
+            (11..20).map { item("stale$it", attempts = 10, correct = 0) }
+        val random = Random(42)
+        var freshPicks = 0
+        val trials = 400
+        repeat(trials) {
+            val picked = QuestionSelectionPolicy.select(candidates, 1, random = random).first()
+            if (picked.id.startsWith("fresh")) freshPicks++
+        }
+        assertTrue(
+            "fewer-attempts picked ${freshPicks}/${trials}",
+            freshPicks > trials * 0.55
+        )
     }
 
-    // ---------------------------------------------------------- select
+    @Test
+    fun masteredQuestionsStillAppearOccasionally() {
+        // 毎回正解の問題も完全には排除しない（たまには出る）
+        val candidates = (1..20).map { item("mastered$it", 10, 10) }
+        val random = Random(42)
+        val picked = (1..100).mapNotNull {
+            QuestionSelectionPolicy.selectOne(candidates, random = random)
+        }
+        assertTrue(picked.isNotEmpty())
+    }
+
+    // ---------------------------------------------------------- 基本動作
 
     @Test
     fun selectReturnsEmptyWhenNoCandidates() {
@@ -93,60 +148,9 @@ class QuestionSelectionPolicyTest {
 
     @Test
     fun selectDoesNotDuplicate() {
-        val candidates = (1..30).map { item("q$it", 0, 0) }
+        val candidates = (1..30).map { item("q$it", it % 5, (it * 3) % 5) }
         val result = QuestionSelectionPolicy.select(candidates, 30, random = Random(7))
         assertEquals(result.size, result.map { it.id }.distinct().size)
-    }
-
-    // ---------------------------------------------------------- 傾向（重み付け）
-
-    @Test
-    fun unansweredQuestionsArePickedFarMoreOftenThanMasteredOnes() {
-        // 未回答10問 vs 毎回正解10問 → 未回答が圧倒的に多く選ばれるべき
-        val candidates = (1..10).map { item("new$it", 0, 0) } +
-            (11..20).map { item("mastered$it", 10, 10) }
-
-        val random = Random(42)
-        var unansweredPicks = 0
-        val trials = 500
-        repeat(trials) {
-            val picked = QuestionSelectionPolicy.select(candidates, 1, random = random).first()
-            if (picked.id.startsWith("new")) unansweredPicks++
-        }
-        assertTrue(
-            "unanswered picked ${unansweredPicks}/${trials}",
-            unansweredPicks > trials * 0.7
-        )
-    }
-
-    @Test
-    fun strugglingQuestionsArePickedMoreOftenThanMasteredOnes() {
-        // 誤答率が高い問題は、毎回正解の問題より優先されて出てよい
-        val candidates = (1..10).map { item("wrong$it", 10, 0) } +
-            (11..20).map { item("mastered$it", 10, 10) }
-
-        val random = Random(42)
-        var wrongPicks = 0
-        val trials = 500
-        repeat(trials) {
-            val picked = QuestionSelectionPolicy.select(candidates, 1, random = random).first()
-            if (picked.id.startsWith("wrong")) wrongPicks++
-        }
-        assertTrue(
-            "struggling picked ${wrongPicks}/${trials}",
-            wrongPicks > trials * 0.7
-        )
-    }
-
-    @Test
-    fun masteredQuestionsStillAppearOccasionally() {
-        // 毎回正解の問題も完全には排除しない（たまには出る）
-        val candidates = (1..20).map { item("mastered$it", 10, 10) }
-        val random = Random(42)
-        val picked = (1..50).mapNotNull {
-            QuestionSelectionPolicy.selectOne(candidates, random = random)
-        }
-        assertTrue(picked.isNotEmpty())
     }
 
     @Test

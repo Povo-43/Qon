@@ -29,5 +29,7 @@ class QuestionRepositoryImpl @Inject constructor(
     override suspend fun getById(id: String) = Result.success(dao.getById(id))
     override fun getAllByLearningSet(learningSetId: String): Flow<List<Question>> = dao.getAllByLearningSet(learningSetId)
     override suspend fun countByLearningSet(learningSetId: String) = Result.success(dao.countByLearningSet(learningSetId))
+    override suspend fun countUnansweredByLearningSet(learningSetId: String) =
+        Result.success(dao.countUnansweredByLearningSet(learningSetId))
     override suspend fun findByContentHash(learningSetId: String, hash: String) = Result.success(dao.findByContentHash(learningSetId, hash))
 }

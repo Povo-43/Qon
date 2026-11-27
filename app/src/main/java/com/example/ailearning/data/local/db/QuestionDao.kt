@@ -84,6 +84,16 @@ interface QuestionDao {
     @Query("SELECT COUNT(*) FROM questions WHERE learningSetId = :learningSetId AND isActive = 1")
     suspend fun countByLearningSet(learningSetId: String): Int
 
+    /** まだ一度も答えていない問題の数。補充判断はこれを使う（全問回答済みでも補充が止まらないように） */
+    @Query("""
+        SELECT COUNT(*) FROM questions q
+        WHERE q.learningSetId = :learningSetId AND q.isActive = 1
+          AND q.id NOT IN (
+              SELECT questionId FROM answer_histories WHERE learningSetId = :learningSetId
+          )
+    """)
+    suspend fun countUnansweredByLearningSet(learningSetId: String): Int
+
     @Query("SELECT * FROM questions WHERE learningSetId = :learningSetId AND contentHash = :hash AND isActive = 1")
     suspend fun findByContentHash(learningSetId: String, hash: String): Question?
 

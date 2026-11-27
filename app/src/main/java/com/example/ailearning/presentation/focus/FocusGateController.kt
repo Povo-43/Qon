@@ -220,11 +220,11 @@ object FocusGateController {
             // 未出題の問題が無くなった → 緊急補充
             requestPrefetch(setId)
         } else if (setId != null) {
-            // 残り問題数が目標の半分を下回ったら、裏で補充を開始する
-            // （「同じ問題ばかり出る」を根本から防ぐため、早めに生成する）
-            val count = AppContainer.questionRepository.countByLearningSet(setId).getOrDefault(0)
+            // 「未回答」の残りが目標の半分を下回ったら、裏で補充を開始する
+            // （合計件数で判定すると全部答えた後に補充が止まるため）
+            val unanswered = AppContainer.questionRepository.countUnansweredByLearningSet(setId).getOrDefault(0)
             val target = AppContainer.settingsPreferences.prefetchTargetCount
-            if (count < target / 2) {
+            if (unanswered < target / 2) {
                 requestPrefetch(setId)
             }
         }
@@ -240,11 +240,11 @@ object FocusGateController {
         }
     }
 
-    /** 回答後のストック維持。残り問題数が目標の半分を下回ったら裏で補充する。 */
+    /** 回答後のストック維持。「未回答」の残りが目標の半分を下回ったら裏で補充する。 */
     private suspend fun topUpIfLowStock(setId: String) {
-        val count = AppContainer.questionRepository.countByLearningSet(setId).getOrDefault(0)
+        val unanswered = AppContainer.questionRepository.countUnansweredByLearningSet(setId).getOrDefault(0)
         val target = AppContainer.settingsPreferences.prefetchTargetCount
-        if (count < target / 2) {
+        if (unanswered < target / 2) {
             requestPrefetch(setId)
         }
     }

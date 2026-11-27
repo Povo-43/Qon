@@ -27,8 +27,9 @@ import java.util.concurrent.TimeUnit
  * - ウィジェットのキャッシュが空のとき
  * - ゲートで未出題の問題が無くなったとき（force=true）
  *
- * に登録され、閾値未満のセットだけを補充する。
- * force=true のときは閾値に関わらず補充する（問題が尽きたときの緊急補充）。
+ * に登録され、「未回答」の問題数が閾値未満のセットだけを補充する。
+ * 合計件数ではなく未回答数で判定するため、全部答えた後でも補充が止まらない。
+ * 生成に失敗した場合は例外を投げて WorkManager にリトライさせる（握りつぶさない）。
  */
 class QuestionPrefetchWorker(private val context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -79,13 +80,9 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
         val generate = AppContainer.generateQuestionsUseCase
         val prefs = AppContainer.settingsPreferences
 
-        // 補充目標件数。force=true（問題が尽きそう）のときは
-        // prefetch_target_count（初期50）まで一気に補充する。
-        val targetCount = if (force) {
-            prefs.prefetchTargetCount.coerceAtLeast(10)
-        } else {
-            prefs.prefetchTargetCount.coerceAtLeast(10)
-        }
+        // 補充目標件数（「未回答」の問題数ベース）。
+        // 合計件数で判定すると全部答えた後に補充が止まり、既出問題の再出題ばかりになるため。
+        val targetCount = prefs.prefetchTargetCount.coerceAtLeast(10)
 
         val sets = if (targetSetId != null) {
             listOfNotNull(learningSetRepository.getByIdOnce(targetSetId).getOrNull())
@@ -94,16 +91,27 @@ class QuestionPrefetchWorker(private val context: Context, params: WorkerParamet
         }
 
         var attempted = 0
+        val failures = mutableListOf<Exception>()
         for (set in sets) {
             if (attempted >= MAX_GENERATIONS_PER_RUN) break
 
-            val existing = questionRepository.countByLearningSet(set.id).getOrDefault(0)
-            if (existing >= targetCount) continue
+            val unanswered = questionRepository.countUnansweredByLearningSet(set.id).getOrDefault(0)
+            if (unanswered >= targetCount) continue
 
-            val needed = (targetCount - existing).coerceAtMost(MAX_GENERATE_COUNT)
+            val needed = (targetCount - unanswered).coerceAtMost(MAX_GENERATE_COUNT)
             val result = generate(set.id, needed)
-            if (result.isSuccess) attempted++
+            if (result.isSuccess) {
+                attempted++
+            } else {
+                // 失敗を握りつぶさない（握りつぶすと WorkManager が成功扱いして
+                // リトライされず、問題が増えないまま気づかれない）
+                failures.add(
+                    result.exceptionOrNull() as? Exception
+                        ?: Exception("question generation failed for ${set.id}")
+                )
+            }
         }
+        if (failures.isNotEmpty()) throw failures.first()
         return attempted
     }
 

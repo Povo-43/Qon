@@ -2,53 +2,33 @@ package com.example.ailearning.domain.usecase
 
 import com.example.ailearning.domain.model.Question
 import com.example.ailearning.domain.model.QuestionWithStats
+import kotlin.math.exp
 import kotlin.random.Random
 
 /**
  * 出題選択ポリシー（純粋関数のみ・単体テスト対象）。
  *
- *要件:
- * - なるべく「答えたことのない問題」を出す
- * - 誤答率が高い（正答率の低い）問題は出てもよい
- * - 毎回正解している問題は繰り返し出さない
+ * どの画面（連続学習・ランダム・ゲート・ウィジェット）で解いても同じ順序規則を適用する。
+ * 復習モード（弱点問題中心）は対象外。
  *
- * そのため各問題に「出題しやすさ」の重みを与え、重み付きランダムで選ぶ。
+ * 選ばれる順序:
  *
- * | 状態                     | 重み            | 意味 |
- * |--------------------------|-----------------|------|
- * | 未回答                   | 3.0             | 最優先。既答のどんな問題より出やすい |
- * | 正答率 0%（全部間違い）   | 1.2             | 復習価値が高いので積極的に出す |
- * | 正答率 50%               | 0.7             | たまに出る |
- * | 正答率 100%（全部正解）   | 0.2             | ほとんど出ない（未回答の 1/15） |
+ * 1. **未出の問題（まだ一度も答えていない）をまず出す**
+ *    - 未回答の問題が残っている限り、既答の問題は選ばれない（重みではなく厳格な優先）
+ * 2. **既答の問題は「正答率が低い」→「解答数が少ない」の順に優先し、ランダムに回す**
+ *    - (正答率 ASC, 解答回数 ASC) で並べ、上位ほど選ばれやすい重み付きランダム（非復元抽出）
+ *    - 毎回正解している問題はほとんど出ないが、完全には排除しない
  */
 object QuestionSelectionPolicy {
 
-    /** 未回答問題の重み */
-    const val UNANSWERED_WEIGHT = 3.0
+    /** 既答リストの何割かを基準にした重み減衰のスケール。小さいほど上位固定になる */
+    private const val RANK_DECAY_SCALE = 4.0
 
-    /** 既答問題の重みの下限（正答率100%の問題）。 */
-    const val MASTERED_WEIGHT = 0.2
-
-    /** 既答問題の重みの上限（正答率0%の問題）。 */
-    const val STRUGGLING_WEIGHT = 1.2
+    /** 最下位（毎回正解・たくさん解答済み）でも残る最低重み。0にすると完全排除になるので少し残す */
+    private const val MIN_WEIGHT = 0.02
 
     /**
-     * 回答統計から出題重みを計算する。
-     *
-     * @param attempts 回答回数（スキップ含む）
-     * @param correct 正解回数
-     */
-    fun weightOf(attempts: Int, correct: Int): Double {
-        if (attempts <= 0) return UNANSWERED_WEIGHT
-        val accuracy = correct.toDouble().coerceAtLeast(0.0) / attempts
-        val mistakeRate = (1.0 - accuracy).coerceIn(0.0, 1.0)
-        return MASTERED_WEIGHT + (STRUGGLING_WEIGHT - MASTERED_WEIGHT) * mistakeRate
-    }
-
-    fun weightOf(item: QuestionWithStats): Double = weightOf(item.attempts, item.correct)
-
-    /**
-     * 候補から [count] 問を重み付きランダム（非復元抽出）で選ぶ。
+     * 候補から [count] 問を選ぶ。
      *
      * @param candidates 問題と回答統計のリスト
      * @param count 選ぶ問題数
@@ -62,17 +42,48 @@ object QuestionSelectionPolicy {
         random: Random = Random.Default
     ): List<Question> {
         if (count <= 0) return emptyList()
-        val pool = candidates
-            .filter { it.question.id !in excludeIds }
-            .toMutableList()
-        if (pool.isEmpty()) return emptyList()
+        val pool = candidates.filter { it.question.id !in excludeIds }
 
         val picked = ArrayList<Question>(count.coerceAtMost(pool.size))
-        val weights = DoubleArray(pool.size)
+
+        // ---- 優先1: 未出の問題をまず出す（ランダムに回す）----
+        val unanswered = pool.filter { it.isUnanswered }.map { it.question }
+        if (unanswered.isNotEmpty()) {
+            picked += unanswered.shuffled(random).take(count - picked.size)
+        }
+
+        // ---- 優先2: 既答は「正答率が低い」「解答数が少ない」の順に重み付きで回す ----
+        if (picked.size < count) {
+            val answered = pool
+                .filter { !it.isUnanswered }
+                .sortedWith(compareBy({ it.accuracy ?: 1.0 }, { it.attempts }))
+            if (answered.isNotEmpty()) {
+                picked += weightedSample(answered, count - picked.size, random).map { it.question }
+            }
+        }
+
+        return picked
+    }
+
+    /**
+     * (正答率昇順, 解答回数昇順) にソート済みのリストから、ランクに応じた重み付きで
+     * [count] 件を非復元抽出する。上位（正答率が低い・解答数が少ない）ほど選ばれやすいが、
+     * 下位も確率は低く残るため、出題が回っていく。
+     */
+    private fun <T> weightedSample(
+        sorted: List<T>,
+        count: Int,
+        random: Random
+    ): List<T> {
+        val pool = sorted.toMutableList()
+        val picked = ArrayList<T>(count.coerceAtMost(pool.size))
+        val decay = RANK_DECAY_SCALE
         while (picked.size < count && pool.isNotEmpty()) {
+            val tau = (pool.size / decay).coerceAtLeast(1.0)
             var total = 0.0
+            val weights = DoubleArray(pool.size)
             for (i in pool.indices) {
-                val w = weightOf(pool[i])
+                val w = (exp(-i / tau)).coerceAtLeast(MIN_WEIGHT)
                 weights[i] = w
                 total += w
             }
@@ -85,7 +96,7 @@ object QuestionSelectionPolicy {
                     break
                 }
             }
-            picked.add(pool.removeAt(index).question)
+            picked.add(pool.removeAt(index))
         }
         return picked
     }

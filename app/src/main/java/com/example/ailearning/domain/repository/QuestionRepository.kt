@@ -26,5 +26,8 @@ interface QuestionRepository {
     suspend fun getById(id: String): Result<Question?>
     fun getAllByLearningSet(learningSetId: String): Flow<List<Question>>
     suspend fun countByLearningSet(learningSetId: String): Result<Int>
+
+    /** まだ一度も答えていない問題の数（バックグラウンド補充の判断用） */
+    suspend fun countUnansweredByLearningSet(learningSetId: String): Result<Int>
     suspend fun findByContentHash(learningSetId: String, hash: String): Result<Question?>
 }
